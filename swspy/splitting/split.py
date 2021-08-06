@@ -23,6 +23,14 @@ import subprocess
 import gc
 from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
 
+def _rotate_ZNE_to_LQT(st_ZNE,back_azi,event_inclin_angle_at_station):
+    """Function to rotate ZRT traces into LQT and save to outdir.
+    Requires: tr_z,tr_r,tr_t - traces for z,r,t components; back_azi - back azimuth angle from reciever to event in degrees from north; 
+    event_inclin_angle_at_station - inclination angle of arrival at receiver, in degrees from vertical down."""
+    # Rotate to LQT:
+    st_LQT = st_ZNE.copy()
+    st_LQT.rotate(method='ZNE->LQT', back_azimuth=back_azi, inclination=event_inclin_angle_at_station)
+    return st_LQT
 
 class create_splitting_object:
     """
@@ -98,8 +106,10 @@ class create_splitting_object:
         """
         # Create data stores:
         n_t_steps = int(self.max_t_shift_s / self.fs)
-        n_angle_steps = int(360. / self.rotate_step_deg)
+        n_angle_steps = int(360. / self.rotate_step_deg) + 1
         grid_search_results_all = np.zeros((self.n_win**2, n_t_steps, n_angle_steps), dtype=float)
+        lags = np.arange(-n_t_steps / 2., n_t_steps / 2., 1) / self.fs
+        degs = np.arange(0., n_angle_steps * self.rotate_step_deg, self.rotate_step_deg)
 
         # Perform grid search:
         # Loop over start and end windows:
@@ -110,10 +120,14 @@ class create_splitting_object:
                 grid_search_idx = int(self.n_win*a + b)
                 # Loop over time shifts:
                 for i in range(n_t_steps):
-                    t_shift_curr = int( i - ( n_t_steps / 2.) )
+                    t_samp_shift_curr = int( i - ( n_t_steps / 2.) )
+                    # Time-shift data:
+                    rolled_N_tmp = np.roll(data_arr_N, t_samp_shift_curr)
+                    rolled_E_tmp = np.roll(data_arr_E, t_samp_shift_curr)
                     # Loop over angles:
                     for j in range(n_angle_steps):
-                        angle_shift_curr_rad = j * self.rotate_step_deg * np.pi / 180.
+                        angle_shift_rad_curr = j * self.rotate_step_deg * np.pi / 180.
+                        
                         #HERE!!!
 
 
@@ -130,15 +144,18 @@ class create_splitting_object:
             if tr.stats.station not in stations_list:
                 stations_list.append(tr.stats.station)
         for station in stations_list:
-            # 1. Get horizontal channels:
+            # 1. Rotate channels into LQT coordinate system:
+            # (NEED TO COMPLETE!!!)
+
+            # 2. Get horizontal channels:
             tr_N = self.st.select(station=station, channel="??N")[0]
             tr_E = self.st.select(station=station, channel="??E")[0]
             
-            # 2. Get window indices:
+            # 3. Get window indices:
             self.fs = tr_N.stats.sampling_rate
             win_start_idxs, win_end_idxs = self._select_windows()
 
-            # 3. Calculate splitting angle and delay time 
+            # 4. Calculate splitting angle and delay time 
             #    (via eigenvalue method):
             self._calc_splitting_eig_val_method(tr_N.data, tr_E.data, win_start_idxs, win_end_idxs)
 
