@@ -14,6 +14,8 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from numba import jit
+from scipy import stats, interpolate
 import obspy
 from obspy import UTCDateTime as UTCDateTime
 import sys, os
@@ -23,7 +25,7 @@ import subprocess
 import gc
 from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
 
-def _rotate_ZNE_to_LQT(st_ZNE,back_azi,event_inclin_angle_at_station):
+def _rotate_ZNE_to_LQT(st_ZNE, back_azi, event_inclin_angle_at_station):
     """Function to rotate ZRT traces into LQT and save to outdir.
     Requires: tr_z,tr_r,tr_t - traces for z,r,t components; back_azi - back azimuth angle from reciever to event in degrees from north; 
     event_inclin_angle_at_station - inclination angle of arrival at receiver, in degrees from vertical down."""
@@ -31,6 +33,177 @@ def _rotate_ZNE_to_LQT(st_ZNE,back_azi,event_inclin_angle_at_station):
     st_LQT = st_ZNE.copy()
     st_LQT.rotate(method='ZNE->LQT', back_azimuth=back_azi, inclination=event_inclin_angle_at_station)
     return st_LQT
+
+
+def _rotate_QT_comps(data_arr_Q, data_arr_T, rot_angle_rad):
+    """
+    Function to rotate Q (SV polarisation) and T (SH polarisation) components by a rotation angle <rot_angle_rad>,
+    in radians. Output is a set of rotated traces in a rotated coordinate system about 
+    degrees clockwise from Q.
+    """
+    # Convert angle from counter-clockwise from x to clockwise:
+    theta_rot = -rot_angle_rad #-1. * (rot_angle_rad + (np.pi / 2. ))
+    # Define rotation matrix:
+    rot_matrix = np.array([[np.cos(theta_rot), -np.sin(theta_rot)], [np.sin(theta_rot), np.cos(theta_rot)]])
+    # And perform the rotation:
+    vec = np.vstack((data_arr_T, data_arr_Q))
+    vec_rot = np.dot(rot_matrix, vec)
+    data_arr_Q_rot = np.array(vec_rot[1,:])
+    data_arr_T_rot = np.array(vec_rot[0,:])
+    return data_arr_Q_rot, data_arr_T_rot
+
+
+def remove_splitting(st_LQT_uncorr, phi, dt):
+    """
+    Function to remove SWS from LQT rotated data for a single station.
+    Note: Consistency in this function with sws measurement. Uses T in x-direction and Q in y direction 
+    convention.
+
+    Parameters
+    ----------
+    st_LQT_uncorr : obspy stream object
+        Stream data for station corresponding to splitting parameters.
+    phi : float
+        Splitting angle, for LQT coordinates.
+    dt : float
+        Fast-slow delay time (lag) for splitting.
+
+    Returns
+    -------
+    st_LQT_corr : obspy stream object
+        Corrected data
+    """
+    # Perform inital data checks:
+    if len(st_LQT_uncorr.select(channel="??Q")) != 1:
+        print("Error: st_LQT_uncorr has more or less than 1 Q component. Exiting.")
+        sys.exit()
+    if len(st_LQT_uncorr.select(channel="??T")) != 1:
+        print("Error: st_LQT_uncorr has more or less than 1 T component. Exiting.")
+        sys.exit()
+    # Perform SWS correction:
+    x_in, y_in = st_LQT_uncorr.select(channel="??T")[0].data, st_LQT_uncorr.select(channel="??Q")[0].data
+    fs = st_LQT_uncorr.select(channel="??T")[0].stats.sampling_rate
+    # 1. Rotate data into splitting coordinates:
+    x, y = _rotate_QT_comps(x_in, y_in, phi * np.pi/180)
+    # 2. Apply reverse time shift to Q data only:
+    y = np.roll(y, -int(dt * fs))
+    # 3. And rotate back to QT coordinates:
+    x, y = _rotate_QT_comps(x, y, -phi * np.pi/180)
+    # And save data for output:
+    st_LQT_corr = st_LQT_uncorr.copy()
+    st_LQT_corr.select(channel="??T")[0].data = x 
+    st_LQT_corr.select(channel="??Q")[0].data = y
+    return st_LQT_corr
+
+
+# def get_cov_eigen_values(x,y):
+#     """
+#     Get the covariance matrix eigenvalues.
+#     Returns lambda2, lambda1
+#     """ 
+#     data = np.vstack((x,y))
+#     return np.sort(np.linalg.eigvalsh(np.cov(data)))
+
+def calc_dof(y):
+    """
+    Finds the number of degrees of freedom using a noise trace, y. Uses 
+    definition as in Walsh2013.
+    Note: Doesn't apply any form of smoothing filter (f(t,h)).
+    """
+    # Take fft of noise:
+    Y = np.fft.fft(y)
+    amp = np.absolute(Y)
+    # estimate E2 and E4 (from Walsh2013):
+    a = np.ones(len(Y))
+    a[0] = 0.5
+    a[-1] = 0.5
+    E2 = np.sum( a * amp**2) # Eq. 25, Walsh2013
+    E4 = np.sum( (4 * a**2 / 3) * amp**4) # Eq. 26, Walsh2013
+    # And find dof based on E2 and E4 estimates:
+    dof = 2 * ( (2 * E2**2 / E4) - 1 )  # Eq. 31, Walsh2013 
+    return dof
+    
+def ftest(data, dof, alpha=0.05, k=2, min_max='min'):
+    """
+    Finds the confidence bounds value associated with data.
+    Note that this version uses the minumum of the data by 
+    default.
+    Parameters
+    ----------
+    data : np array
+        Data to process.
+    dof : int
+        Number of degrees of freedom.
+    alpha : float
+        Confidence level (e.g. if alpha = 0.05, then 
+        95% confidence level found).
+    k : int
+        Number of parameters (e.g. phi, dt).
+    min_max : specific str
+        Whether performs ftest on min or max of data.
+
+    Returns
+    -------
+    conf_bound : float
+        Value of the confidence bounds for the specified confidence 
+        level, alpha.
+    """
+    # Check that dof within acceptable limits:
+    if dof < 3:
+        raise Exception('Degrees of freedom < 3. Window length is likely too short to perform analysis.')
+    # And perform ftest:
+    if min_max == 'max':
+        data_minmax = np.max(data)
+    else:
+        data_minmax = np.min(data)
+    F = stats.f.ppf(1-alpha, k, dof)
+    conf_bound = data_minmax * ( 1 + ( k / (dof - k) ) * F)
+    return conf_bound
+
+
+
+@jit(nopython=True)
+def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, grid_search_results_all_win):
+    """Function to do numba accelerated grid search of phis and dts."""
+
+    # Loop over start and end windows:
+    for a in range(n_win):
+        start_win_idx = win_start_idxs[a]
+        for b in range(n_win):
+            end_win_idx = win_end_idxs[b]
+            grid_search_idx = int(n_win*a + b)
+
+            # Loop over angles:
+            for j in range(n_angle_steps):
+                angle_shift_rad_curr = j * rotate_step_deg * np.pi / 180.
+
+                # Rotate QT waveforms by angle:
+                # (Note: Explicit rotation specification as wrapped in numba):
+                # Convert angle from counter-clockwise from x to clockwise:
+                theta_rot = -angle_shift_rad_curr
+                # Perform the rotation explicitely (avoiding creating additional arrays):
+                rot_T_curr = (data_arr_T[start_win_idx:end_win_idx] * np.cos(theta_rot)) - (data_arr_Q[start_win_idx:end_win_idx] * np.sin(theta_rot))
+                rot_Q_curr = (data_arr_T[start_win_idx:end_win_idx] * np.sin(theta_rot)) + (data_arr_Q[start_win_idx:end_win_idx] * np.cos(theta_rot))
+
+                # Loop over time shifts:
+                for i in range(n_t_steps):
+                    t_samp_shift_curr = int( i - ( n_t_steps / 2.) )
+                    # Time-shift data (note: only shift one set of data (rotated T in this case)):
+                    rolled_rot_Q_curr = rot_Q_curr #np.roll(rot_Q_curr, t_samp_shift_curr)
+                    rolled_rot_T_curr = np.roll(rot_T_curr, t_samp_shift_curr)
+
+                    # Calculate eigenvalues:
+                    xy_arr = np.vstack((rolled_rot_T_curr, rolled_rot_Q_curr))
+                    lambdas_unsort = np.linalg.eigvalsh(np.cov(xy_arr))
+                    lambdas = np.sort(lambdas_unsort)
+
+                    # And save result to datastores:
+                    # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable)
+                    grid_search_results_all_win[grid_search_idx,i,j] = lambdas[0] / lambdas[1]
+   
+    return grid_search_results_all_win
+
+
 
 class create_splitting_object:
     """
@@ -84,10 +257,10 @@ class create_splitting_object:
         self.nonlinloc_hyp_data = read_nonlinloc.read_hyp_file(nonlinloc_event_path)
         # Define attributes:
         self.overall_win_start_pre_fast_S_pick = 0.1
-        self.overall_win_start_post_fast_S_pick = 0.5
+        self.overall_win_start_post_fast_S_pick = 0.2
         self.win_S_pick_tolerance = 0.01
         self.rotate_step_deg = 2.0
-        self.max_t_shift_s = 0.2
+        self.max_t_shift_s = 0.1
         self.n_win = 10
 
     def _select_windows(self):
@@ -95,49 +268,84 @@ class create_splitting_object:
         Function to specify window start and end time indices.
         """
         start_idxs_range = int((self.overall_win_start_pre_fast_S_pick - self.win_S_pick_tolerance) * self.fs) 
-        win_start_idxs = np.random.randint(start_idxs_range, size=self.n_win)
+        win_start_idxs = np.linspace(0, start_idxs_range, num=self.n_win, dtype=int) #np.random.randint(start_idxs_range, size=self.n_win)
         end_idxs_start = int((self.overall_win_start_pre_fast_S_pick + self.overall_win_start_post_fast_S_pick) * self.fs) 
-        win_end_idxs = np.random.randint(end_idxs_start, end_idxs_start + start_idxs_range, size=self.n_win)
+        win_end_idxs = np.linspace(end_idxs_start, end_idxs_start + start_idxs_range, num=self.n_win, dtype=int) #np.random.randint(end_idxs_start, end_idxs_start + start_idxs_range, size=self.n_win)
         return win_start_idxs, win_end_idxs
+    
 
-    def _calc_splitting_eig_val_method(self, data_arr_N, data_arr_E, win_start_idxs, win_end_idxs):
+    def _calc_splitting_eig_val_method(self, data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs):
         """
         Function to calculate splitting via eigenvalue method.
         """
-        # Create data stores:
-        n_t_steps = int(self.max_t_shift_s / self.fs)
-        n_angle_steps = int(360. / self.rotate_step_deg) + 1
-        grid_search_results_all = np.zeros((self.n_win**2, n_t_steps, n_angle_steps), dtype=float)
-        lags = np.arange(-n_t_steps / 2., n_t_steps / 2., 1) / self.fs
-        degs = np.arange(0., n_angle_steps * self.rotate_step_deg, self.rotate_step_deg)
+        # Setup paramters:
+        n_t_steps = int(self.max_t_shift_s * self.fs)
+        n_angle_steps = int(180. / self.rotate_step_deg) + 1
+        n_win = self.n_win
+        fs = self.fs
+        rotate_step_deg = self.rotate_step_deg
+
+        # Setup datastores:
+        grid_search_results_all_win = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
+        lags_labels = np.arange(-n_t_steps / 2., n_t_steps / 2., 1) / fs 
+        phis_labels = np.arange(-90, 90 + rotate_step_deg, rotate_step_deg)
 
         # Perform grid search:
-        # Loop over start and end windows:
-        for a in range(self.n_win):
-            start_win_idx = win_start_idxs[a]
-            for b in range(self.n_win):
-                end_win_idx = win_start_idxs[b]
-                grid_search_idx = int(self.n_win*a + b)
-                # Loop over time shifts:
-                for i in range(n_t_steps):
-                    t_samp_shift_curr = int( i - ( n_t_steps / 2.) )
-                    # Time-shift data:
-                    rolled_N_tmp = np.roll(data_arr_N, t_samp_shift_curr)
-                    rolled_E_tmp = np.roll(data_arr_E, t_samp_shift_curr)
-                    # Loop over angles:
-                    for j in range(n_angle_steps):
-                        angle_shift_rad_curr = j * self.rotate_step_deg * np.pi / 180.
+        # (note that numba accelerated, hence why function outside class)
+        grid_search_results_all_win = _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, 
+                                                        n_win, fs, rotate_step_deg, grid_search_results_all_win)
                         
-                        #HERE!!!
+        return grid_search_results_all_win, lags_labels, phis_labels
 
 
-                    
-                
+    def get_phi_and_lag_errors(self, phi_dt_single_win, lags_labels, phis_labels, tr_for_dof, interp_fac=4):
+        """
+        Finds the error associated with phi and lag for a given grid search window result.
+        Returns errors in phi and lag.
+        Calculates errors based on the Silver and Chan (1991) method using the 95% confidence 
+        interval, found using an f-test.
+        """
+        # Define the error surface to work with:
+        # (Done explicitely simply so that can change easily)
+        if interp_fac > 1:
+            interp_spline = interpolate.RectBivariateSpline(lags_labels, phis_labels, phi_dt_single_win)
+            x_tmp = lags_labels
+            y_tmp = phis_labels
+            error_surf = interp_spline(np.linspace(x_tmp[0], x_tmp[-1], interp_fac*len(x_tmp)), np.linspace(y_tmp[0], y_tmp[-1], interp_fac*len(y_tmp)))
+        else:
+            error_surf = phi_dt_single_win
+        
 
+        # Find grid search array points where within confidence interval:
+        # Use transverse component to calculate dof
+        dof = calc_dof(tr_for_dof.data)
+        conf_bound = ftest(phi_dt_single_win, dof, alpha=0.05, k=2)
+        conf_mask = error_surf <= conf_bound
+
+        # Find lag dt error:
+        # (= 1/4 width of confidence box (see Silver1991))
+        lag_mask = conf_mask.any(axis=0)
+        true_idxs = np.where(lag_mask)[0]
+        lag_step_s = lags_labels[1] - lags_labels[0]
+        lag_err = (true_idxs[-1] - true_idxs[0] + 1) * lag_step_s * 0.25
+
+        # Find fast direction phi error:
+        # (= 1/4 width of confidence box (see Silver1991))
+        # (Note: This must deal with angle symetry > 90 or < -90)
+        phi_mask = conf_mask.any(axis=1)
+        phi_mask_with_pos_neg_overlap = np.hstack((phi_mask,phi_mask, phi_mask))
+        max_false_len = np.diff(np.where(phi_mask_with_pos_neg_overlap)).max() - 1
+        # shortest line that contains ALL true values is then:
+        max_true_len = len(phi_mask) - max_false_len
+        phi_step_deg = phis_labels[1] - phis_labels[0]
+        phi_err = max_true_len * phi_step_deg * 0.25
+
+        return phi_err, lag_err 
 
 
     def perform_sws_analysis(self):
-        """Function to perform splitting analysis."""
+        """Function to perform splitting analysis. Works in LQT coordinate system 
+        as then performs shear-wave-splitting in 3D."""
         # Loop over stations in stream:
         stations_list = []
         for tr in self.st: 
@@ -145,21 +353,101 @@ class create_splitting_object:
                 stations_list.append(tr.stats.station)
         for station in stations_list:
             # 1. Rotate channels into LQT coordinate system:
-            # (NEED TO COMPLETE!!!)
+            st_ZNE_curr = self.st.select(station=station).copy()
+            try:
+                back_azi = self.nonlinloc_hyp_data.phase_data[station]['S']['SAzim'] + 180.
+                if back_azi >= 360.:
+                    back_azi = back_azi - 360.
+                event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
+            except KeyError:
+                print("No S phase pick for station:", station, "therefore skipping this station.")
+                continue
+            st_LQT_curr = _rotate_ZNE_to_LQT(st_ZNE_curr, back_azi, event_inclin_angle_at_station)
+            del st_ZNE_curr
+            gc.collect()
 
-            # 2. Get horizontal channels:
-            tr_N = self.st.select(station=station, channel="??N")[0]
-            tr_E = self.st.select(station=station, channel="??E")[0]
-            
+            # 2. Get horizontal channels and trim to pick:
+            st_LQT_curr.trim(starttime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] - self.overall_win_start_pre_fast_S_pick,
+                                endtime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] + self.overall_win_start_post_fast_S_pick 
+                                            + self.max_t_shift_s)
+            tr_Q = st_LQT_curr.select(station=station, channel="??Q")[0]
+            tr_T = st_LQT_curr.select(station=station, channel="??T")[0]
+
             # 3. Get window indices:
-            self.fs = tr_N.stats.sampling_rate
+            self.fs = tr_T.stats.sampling_rate
             win_start_idxs, win_end_idxs = self._select_windows()
 
-            # 4. Calculate splitting angle and delay time 
-            #    (via eigenvalue method):
-            self._calc_splitting_eig_val_method(tr_N.data, tr_E.data, win_start_idxs, win_end_idxs)
+            # 4. Calculate splitting angle and delay times for windows:
+            # (Silver and Chan (1991) and Teanby2004 eigenvalue method)
+            # 4.a. Get data for all windows:
+            grid_search_results_all_win, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs, win_end_idxs)
+            self.grid_search_results_all_win = grid_search_results_all_win
+            self.lags_labels = lags_labels 
+            self.phis_labels = phis_labels 
+            # 4.b. Get lag and phi values and errors associated with windows:
+            lags = np.zeros(grid_search_results_all_win.shape[0])
+            phis = np.zeros(grid_search_results_all_win.shape[0])
+            lag_errs = np.zeros(grid_search_results_all_win.shape[0])
+            phi_errs = np.zeros(grid_search_results_all_win.shape[0])
+            for i in range(grid_search_results_all_win.shape[0]):
+                # Only use positive grid search window!:
+                first_pos_idx = np.where(self.lags_labels >= 0.)[0][0]
+                grid_search_result_curr_win = grid_search_results_all_win[i,first_pos_idx:,:]
+                # Get lag and phi:
+                min_idxs = np.where(grid_search_result_curr_win == np.min(grid_search_result_curr_win)) 
+                lags[i] = self.lags_labels[min_idxs[0][0] + first_pos_idx] # + term to deal with positive shift
+                phis[i] = self.phis_labels[min_idxs[1][0]]
+                # Get associated error (from f-test with 95% confidence interval):
+                # (Note: Uses transverse trace for dof estimation (see Silver and Chan 1991))
+                phi_errs[i], lag_errs[i] = self.get_phi_and_lag_errors(grid_search_result_curr_win, self.lags_labels[first_pos_idx:], phis_labels, tr_T)
+
+            # 6. Perform clustering for all windows to find best result:
+            # (Teanby2004 method)
+            # HERE!!!
 
 
-        
+
+
+            # ???. Apply automation approach of Wuestefeld2010 ?!?
+
+
+
+    def plotting():
+        """Function to perform plotting...
+        """
+        # fig, ax = plt.subplots(nrows=2, sharex=True)
+        # ax[0].errorbar(range(len(lags)), lags, yerr=lag_errs, fmt='o')
+        # ax[1].errorbar(range(len(phis)), phis, yerr=phi_errs, fmt='o')
+        # ax[0].set_ylim(0., 0.12/2)
+        # ax[1].set_ylim(-90, 90)
+        # plt.show()
+
+        # plt.figure()
+        # plt.plot(tr_Q.data, tr_T.data)
+        # x_in, y_in = tr_Q.data, tr_T.data
+        # x, y = _rotate_QT_comps(x_in, y_in, phis[0] * np.pi/180)
+        # # x = np.roll(x, -int(lags[0]*self.fs)) # Don't roll Q!
+        # y = np.roll(y, -int(lags[0]*self.fs))
+        # x, y = _rotate_QT_comps(x, y, -phis[0] * np.pi/180)
+        # plt.plot(x, y)
+        # plt.show()
+        # fig, ax = plt.subplots(nrows=2)
+        # ax[0].plot(tr_Q.data)
+        # ax[0].plot(tr_T.data)
+        # ax[1].plot(x)
+        # ax[1].plot(y)
+        # plt.show()
+
+        # plt.figure()
+        # plt.plot(tr_Q.data, tr_T.data)
+        # st_LQT_curr_sws_removed = remove_splitting(st_LQT_curr, phis[0], lags[0])
+        # plt.plot(st_LQT_curr_sws_removed.select(channel="??Q")[0].data, st_LQT_curr_sws_removed.select(channel="??T")[0].data)
+        # plt.show()
+        # fig, ax = plt.subplots(nrows=2)
+        # ax[0].plot(tr_Q.data)
+        # ax[0].plot(tr_T.data)
+        # ax[1].plot(st_LQT_curr_sws_removed.select(channel="??Q")[0].data)
+        # ax[1].plot(st_LQT_curr_sws_removed.select(channel="??T")[0].data)
+        # plt.show()
     
     
