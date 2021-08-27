@@ -16,6 +16,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from numba import jit
 from scipy import stats, interpolate
+from sklearn import cluster
+from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering
 import obspy
 from obspy import UTCDateTime as UTCDateTime
 import sys, os
@@ -298,7 +300,7 @@ class create_splitting_object:
         return grid_search_results_all_win, lags_labels, phis_labels
 
 
-    def get_phi_and_lag_errors(self, phi_dt_single_win, lags_labels, phis_labels, tr_for_dof, interp_fac=4):
+    def _get_phi_and_lag_errors(self, phi_dt_single_win, lags_labels, phis_labels, tr_for_dof, interp_fac=4):
         """
         Finds the error associated with phi and lag for a given grid search window result.
         Returns errors in phi and lag.
@@ -315,7 +317,6 @@ class create_splitting_object:
         else:
             error_surf = phi_dt_single_win
         
-
         # Find grid search array points where within confidence interval:
         # Use transverse component to calculate dof
         dof = calc_dof(tr_for_dof.data)
@@ -341,6 +342,40 @@ class create_splitting_object:
         phi_err = max_true_len * phi_step_deg * 0.25
 
         return phi_err, lag_err 
+
+    
+    def _sws_win_clustering(self, lags, phis, lag_errs, phi_errs, method="dbscan"):
+        """Function to perform sws clustering of phis and lags. This clustering is based on the method of 
+        Teanby2004, except that this function uses new coordinate system to deal with the cyclic nature  
+        of phi about -90,90, and therefore uses a different clustering algorithm (dbscan) to perform 
+        optimal clustering within this new space.
+        Note: Performs analysis on normallised lag data.
+        """
+        # Weight samples by their error variances:
+        # samples_weights = 1. - ((lag_errs/lags)**2 + (phi_errs/phis)**2) # (= 1 - (var_lag_norm + var_phi_norm))
+        
+        # Convert phis and lags into new coordinate system:
+        samples_new_coords =  np.dstack(( ( lags / np.max(lags) ) * np.cos(2 * phis), ( lags / np.max(lags) ) * np.sin(2 * phis) ))[0,:,:]
+
+        # And perform clustering:
+        # ward = AgglomerativeClustering(n_clusters=None, linkage='ward',distance_threshold=0.25)
+        # ward.fit(samples_new_coords)#, sample_weight=samples_weights)
+        db = DBSCAN(eps=0.25, min_samples=int(np.sqrt(len(lags))))
+        clustering = db.fit(samples_new_coords)#, sample_weight=samples_weights)
+        # And find smallest variance cluster and smallest variance observation within that cluster:
+        # HERE!!!
+        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+        n_noise_ = list(labels).count(-1)
+
+        
+        print(clustering.core_sample_indices_)
+        print(clustering.labels_)
+
+        plt.figure(figsize=(3,3))
+        plt.scatter(samples_new_coords[:,0], samples_new_coords[:,1])
+        plt.xlim(-1.1,1.1)
+        plt.ylim(-1.1,1.1)
+        plt.show()
 
 
     def perform_sws_analysis(self):
@@ -399,12 +434,12 @@ class create_splitting_object:
                 phis[i] = self.phis_labels[min_idxs[1][0]]
                 # Get associated error (from f-test with 95% confidence interval):
                 # (Note: Uses transverse trace for dof estimation (see Silver and Chan 1991))
-                phi_errs[i], lag_errs[i] = self.get_phi_and_lag_errors(grid_search_result_curr_win, self.lags_labels[first_pos_idx:], phis_labels, tr_T)
+                phi_errs[i], lag_errs[i] = self._get_phi_and_lag_errors(grid_search_result_curr_win, self.lags_labels[first_pos_idx:], phis_labels, tr_T)
 
             # 6. Perform clustering for all windows to find best result:
-            # (Teanby2004 method)
+            # (Teanby2004 method, but in new coordinate space with dbscan clustering)
+            self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
             # HERE!!!
-
 
 
 
@@ -448,6 +483,17 @@ class create_splitting_object:
         # ax[0].plot(tr_T.data)
         # ax[1].plot(st_LQT_curr_sws_removed.select(channel="??Q")[0].data)
         # ax[1].plot(st_LQT_curr_sws_removed.select(channel="??T")[0].data)
+        # plt.show()
+
+        # # Plot phi-dt space:
+        # plt.figure()
+        # Y, X = np.meshgrid(splitting_event.phis_labels, splitting_event.lags_labels)
+        # Z = np.average(splitting_event.grid_search_results_all_win, axis=0)
+        # plt.contourf(X, Y, Z, levels=10)
+        # min_idxs = np.where(Z == np.min(Z)) 
+        # print(min_idxs, Z.shape)
+        # plt.scatter(splitting_event.lags_labels[min_idxs[0]], splitting_event.phis_labels[min_idxs[1]], c='r')
+        # plt.colorbar()
         # plt.show()
     
     
