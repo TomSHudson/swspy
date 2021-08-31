@@ -362,20 +362,46 @@ class create_splitting_object:
         # ward.fit(samples_new_coords)#, sample_weight=samples_weights)
         db = DBSCAN(eps=0.25, min_samples=int(np.sqrt(len(lags))))
         clustering = db.fit(samples_new_coords)#, sample_weight=samples_weights)
+        # Separate samples into clusters:
+        n_clusters = len(set(clustering.labels_)) - (1 if -1 in clustering.labels_ else 0) # Note: -1 are noise coords
+        clusters_dict = {}
+        for i in range(n_clusters):
+            curr_cluster_idxs = np.where(clustering.labels_ == i)[0]
+            clusters_dict[str(i)] = {}
+            clusters_dict[str(i)]['lags'] = lags[curr_cluster_idxs]
+            clusters_dict[str(i)]['lag_errs'] = lag_errs[curr_cluster_idxs]
+            clusters_dict[str(i)]['phis'] = phis[curr_cluster_idxs]
+            clusters_dict[str(i)]['phi_errs'] = phi_errs[curr_cluster_idxs]
         # And find smallest variance cluster and smallest variance observation within that cluster:
-        # HERE!!!
-        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-        n_noise_ = list(labels).count(-1)
-
-        
-        print(clustering.core_sample_indices_)
-        print(clustering.labels_)
+        # (Note: Variances as in Teanby2004, Eq. 13, 14)
+        cluster_vars = np.zeros(n_clusters)
+        data_vars = np.zeros(n_clusters)
+        for i in range(n_clusters):
+            # Calculate cluster variances (Eq. 13, Teanby2004):
+            cluster_vars[i] = np.sum( ( clusters_dict[str(i)]['lags'] - np.mean(clusters_dict[str(i)]['lags']) )**2 + ( clusters_dict[str(i)]['phis'] - np.mean(clusters_dict[str(i)]['phis']) )**2 ) / len(clusters_dict[str(i)]['lags'])
+            # And calculate cluster variances (Eq. 14, Teanby2004):
+            data_vars[i] = ( 1 / np.sum( 1 / ( clusters_dict[str(i)]['lag_errs']**2 ) ) ) + ( 1 / np.sum( 1 / ( clusters_dict[str(i)]['phi_errs']**2 ) ) )
+        # And calculate representitive variance of each cluster (= max(cluster_vars, data_vars)):
+        cluster_var_0s = np.maximum(cluster_vars, data_vars)
+        # And find smallest overall variance cluster:
+        min_var_idx = np.argmin(cluster_var_0s)
+        smallest_var_cluster = clusters_dict[str(min_var_idx)]
+        # And calculate combined dt + phi variance for each point in cluster, to find best overall observation:
+        n_obs = len(smallest_var_cluster['lags'])
+        cluster_vars_tmp = smallest_var_cluster['lag_errs']**2 + smallest_var_cluster['phi_errs']**2
+        opt_obs_idx = np.argmin(cluster_vars_tmp)
+        opt_lag = smallest_var_cluster['lags'][opt_obs_idx]
+        opt_phi = smallest_var_cluster['phis'][opt_obs_idx]
+        opt_lag_err = smallest_var_cluster['lag_errs'][opt_obs_idx]
+        opt_phi_err = smallest_var_cluster['phi_errs'][opt_obs_idx]
 
         plt.figure(figsize=(3,3))
         plt.scatter(samples_new_coords[:,0], samples_new_coords[:,1])
         plt.xlim(-1.1,1.1)
         plt.ylim(-1.1,1.1)
         plt.show()
+
+        return opt_phi, opt_lag, opt_phi_err, opt_lag_err
 
 
     def perform_sws_analysis(self):
@@ -438,7 +464,8 @@ class create_splitting_object:
 
             # 6. Perform clustering for all windows to find best result:
             # (Teanby2004 method, but in new coordinate space with dbscan clustering)
-            self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+            opt_phi, opt_lag, opt_phi_err, opt_lag_err = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+            print(opt_phi, opt_lag, opt_phi_err, opt_lag_err)
             # HERE!!!
 
 
