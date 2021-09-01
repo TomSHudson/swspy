@@ -14,6 +14,7 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import pandas as pd 
 from numba import jit
 from scipy import stats, interpolate
 from sklearn import cluster
@@ -403,10 +404,33 @@ class create_splitting_object:
 
         return opt_phi, opt_lag, opt_phi_err, opt_lag_err
 
+    
+    def _rot_phi_from_sws_coords_to_deg_from_N(self, phi_pre_rot_deg, back_azi):
+        """Function to rotate phi from LQT splitting to degrees from N."""
+        phi_rot_deg = phi_pre_rot_deg + back_azi
+        if phi_rot_deg > 360.:
+            phi_rot_deg = phi_rot_deg - 360.
+        return phi_rot_deg 
 
-    def perform_sws_analysis(self):
+
+    def perform_sws_analysis(self, coord_system="LQT"):
         """Function to perform splitting analysis. Works in LQT coordinate system 
-        as then performs shear-wave-splitting in 3D."""
+        as then performs shear-wave-splitting in 3D.
+        
+        Parameters
+        ----------
+        coord_system : str
+            Coordinate system to perform analysis in. Options are: LQT, ZNE. Will convert 
+            splitting angles back into coordinates relative to ZNE whatever system it 
+            performs the splitting within. Default = LQT. 
+
+        """
+        # Save any parameters to class object:
+        self.coord_system = coord_system
+
+        # Create datastores:
+        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_from_N': [], 'phi_err': [], 'dt': [], 'dt_err': []})
+
         # Loop over stations in stream:
         stations_list = []
         for tr in self.st: 
@@ -414,12 +438,21 @@ class create_splitting_object:
                 stations_list.append(tr.stats.station)
         for station in stations_list:
             # 1. Rotate channels into LQT coordinate system:
+            # Note: Always rotates to LQT, regardless of specified coord_system, 
+            #       but if coord_system = ZNE then will set ray to come in 
+            #       vertically.
             st_ZNE_curr = self.st.select(station=station).copy()
             try:
                 back_azi = self.nonlinloc_hyp_data.phase_data[station]['S']['SAzim'] + 180.
                 if back_azi >= 360.:
                     back_azi = back_azi - 360.
-                event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
+                if coord_system == "LQT":
+                    event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
+                elif coord_system == "ZNE":
+                    event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence, simulating NE components.
+                else:
+                    print("Error: coord_system =", coord_system, "not supported. Exiting.")
+                    sys.exit()
             except KeyError:
                 print("No S phase pick for station:", station, "therefore skipping this station.")
                 continue
@@ -465,12 +498,17 @@ class create_splitting_object:
             # 6. Perform clustering for all windows to find best result:
             # (Teanby2004 method, but in new coordinate space with dbscan clustering)
             opt_phi, opt_lag, opt_phi_err, opt_lag_err = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
-            print(opt_phi, opt_lag, opt_phi_err, opt_lag_err)
-            # HERE!!!
 
+            # 7. Rotate output phi back into angle relative to N:
+            opt_phi_from_N = self._rot_phi_from_sws_coords_to_deg_from_N(opt_phi, back_azi)
 
+            # 8. And append data to overall datastore:
+            df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_from_N': [opt_phi_from_N], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err]})
+            self.sws_result_df = self.sws_result_df.append(df_tmp)
 
             # ???. Apply automation approach of Wuestefeld2010 ?!?
+
+        return self.sws_result_df
 
 
 
