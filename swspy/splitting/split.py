@@ -14,6 +14,7 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import pandas as pd 
 from numba import jit
 from scipy import stats, interpolate
@@ -36,6 +37,16 @@ def _rotate_ZNE_to_LQT(st_ZNE, back_azi, event_inclin_angle_at_station):
     st_LQT = st_ZNE.copy()
     st_LQT.rotate(method='ZNE->LQT', back_azimuth=back_azi, inclination=event_inclin_angle_at_station)
     return st_LQT
+
+
+def _rotate_LQT_to_ZNE(st_LQT, back_azi, event_inclin_angle_at_station):
+    """Function to rotate LQT traces into ZNE and save to outdir.
+    Requires: tr_z,tr_r,tr_t - traces for z,r,t components; back_azi - back azimuth angle from reciever to event in degrees from north; 
+    event_inclin_angle_at_station - inclination angle of arrival at receiver, in degrees from vertical down."""
+    # Rotate to LQT:
+    st_ZNE = st_LQT.copy()
+    st_ZNE.rotate(method='LQT->ZNE', back_azimuth=back_azi, inclination=event_inclin_angle_at_station)
+    return st_ZNE
 
 
 def _rotate_QT_comps(data_arr_Q, data_arr_T, rot_angle_rad):
@@ -258,6 +269,8 @@ class create_splitting_object:
         # Define parameters:
         self.st = st 
         self.nonlinloc_hyp_data = read_nonlinloc.read_hyp_file(nonlinloc_event_path)
+        self.nonlinloc_event_path = nonlinloc_event_path
+        self.origin_time = self.nonlinloc_hyp_data.origin_time
         # Define attributes:
         self.overall_win_start_pre_fast_S_pick = 0.1
         self.overall_win_start_post_fast_S_pick = 0.2
@@ -306,7 +319,7 @@ class create_splitting_object:
         Finds the error associated with phi and lag for a given grid search window result.
         Returns errors in phi and lag.
         Calculates errors based on the Silver and Chan (1991) method using the 95% confidence 
-        interval, found using an f-test.
+        interval, found using an f-test. (Or 90% ?!)
         """
         # Define the error surface to work with:
         # (Done explicitely simply so that can change easily)
@@ -396,11 +409,11 @@ class create_splitting_object:
         opt_lag_err = smallest_var_cluster['lag_errs'][opt_obs_idx]
         opt_phi_err = smallest_var_cluster['phi_errs'][opt_obs_idx]
 
-        plt.figure(figsize=(3,3))
-        plt.scatter(samples_new_coords[:,0], samples_new_coords[:,1])
-        plt.xlim(-1.1,1.1)
-        plt.ylim(-1.1,1.1)
-        plt.show()
+        # plt.figure(figsize=(3,3))
+        # plt.scatter(samples_new_coords[:,0], samples_new_coords[:,1])
+        # plt.xlim(-1.1,1.1)
+        # plt.ylim(-1.1,1.1)
+        # plt.show()
 
         return opt_phi, opt_lag, opt_phi_err, opt_lag_err
 
@@ -430,12 +443,15 @@ class create_splitting_object:
 
         # Create datastores:
         self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_from_N': [], 'phi_err': [], 'dt': [], 'dt_err': []})
+        self.phi_dt_grid_average = {}
+        self.event_station_win_idxs = {}
 
         # Loop over stations in stream:
         stations_list = []
         for tr in self.st: 
             if tr.stats.station not in stations_list:
                 stations_list.append(tr.stats.station)
+        self.stations_list = stations_list
         for station in stations_list:
             # 1. Rotate channels into LQT coordinate system:
             # Note: Always rotates to LQT, regardless of specified coord_system, 
@@ -446,12 +462,12 @@ class create_splitting_object:
                 back_azi = self.nonlinloc_hyp_data.phase_data[station]['S']['SAzim'] + 180.
                 if back_azi >= 360.:
                     back_azi = back_azi - 360.
-                if coord_system == "LQT":
+                if self.coord_system == "LQT":
                     event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
-                elif coord_system == "ZNE":
+                elif self.coord_system == "ZNE":
                     event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence, simulating NE components.
                 else:
-                    print("Error: coord_system =", coord_system, "not supported. Exiting.")
+                    print("Error: coord_system =", self.coord_system, "not supported. Exiting.")
                     sys.exit()
             except KeyError:
                 print("No S phase pick for station:", station, "therefore skipping this station.")
@@ -505,6 +521,12 @@ class create_splitting_object:
             # 8. And append data to overall datastore:
             df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_from_N': [opt_phi_from_N], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err]})
             self.sws_result_df = self.sws_result_df.append(df_tmp)
+            opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
+            opt_lag_idx = np.where(self.lags_labels == opt_lag)[0][0]
+            self.phi_dt_grid_average[station] = np.average(grid_search_results_all_win, axis=0)
+            self.event_station_win_idxs[station] = {}
+            self.event_station_win_idxs[station]['win_start_idxs'] = win_start_idxs
+            self.event_station_win_idxs[station]['win_end_idxs'] = win_end_idxs
 
             # ???. Apply automation approach of Wuestefeld2010 ?!?
 
@@ -512,53 +534,119 @@ class create_splitting_object:
 
 
 
-    def plotting():
+    def plot(self, out_fname=None):
         """Function to perform plotting...
         """
-        # fig, ax = plt.subplots(nrows=2, sharex=True)
-        # ax[0].errorbar(range(len(lags)), lags, yerr=lag_errs, fmt='o')
-        # ax[1].errorbar(range(len(phis)), phis, yerr=phi_errs, fmt='o')
-        # ax[0].set_ylim(0., 0.12/2)
-        # ax[1].set_ylim(-90, 90)
-        # plt.show()
+        # Loop over stations, plotting:
+        for station in self.stations_list:
+            # Get data:
+            # Waveforms:
+            st_ZNE_curr = self.st.select(station=station).copy()
+            try:
+                back_azi = self.nonlinloc_hyp_data.phase_data[station]['S']['SAzim'] + 180.
+                if back_azi >= 360.:
+                    back_azi = back_azi - 360.
+                if self.coord_system == "LQT":
+                    event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
+                elif self.coord_system == "ZNE":
+                    event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence, simulating NE components.
+                else:
+                    print("Error: coord_system =", self.coord_system, "not supported. Exiting.")
+                    sys.exit()
+            except KeyError:
+                print("No S phase pick for station:", station, "therefore skipping this station.")
+                continue
+            st_LQT_curr = _rotate_ZNE_to_LQT(st_ZNE_curr, back_azi, event_inclin_angle_at_station)
+            st_ZNE_curr.trim(starttime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] - self.overall_win_start_pre_fast_S_pick,
+                    endtime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] + self.overall_win_start_post_fast_S_pick 
+                                + self.max_t_shift_s)
+            st_LQT_curr.trim(starttime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] - self.overall_win_start_pre_fast_S_pick,
+                    endtime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] + self.overall_win_start_post_fast_S_pick 
+                                + self.max_t_shift_s)
+            # And remove splitting:
+            phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi'])
+            dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
+            phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
+            dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
+            st_LQT_curr_sws_corrected = remove_splitting(st_LQT_curr, phi_curr, dt_curr)
+            st_ZNE_curr_sws_corrected = _rotate_LQT_to_ZNE(st_LQT_curr_sws_corrected, back_azi, event_inclin_angle_at_station)
 
-        # plt.figure()
-        # plt.plot(tr_Q.data, tr_T.data)
-        # x_in, y_in = tr_Q.data, tr_T.data
-        # x, y = _rotate_QT_comps(x_in, y_in, phis[0] * np.pi/180)
-        # # x = np.roll(x, -int(lags[0]*self.fs)) # Don't roll Q!
-        # y = np.roll(y, -int(lags[0]*self.fs))
-        # x, y = _rotate_QT_comps(x, y, -phis[0] * np.pi/180)
-        # plt.plot(x, y)
-        # plt.show()
-        # fig, ax = plt.subplots(nrows=2)
-        # ax[0].plot(tr_Q.data)
-        # ax[0].plot(tr_T.data)
-        # ax[1].plot(x)
-        # ax[1].plot(y)
-        # plt.show()
+            # Plot data:
+            # Setup figure:
+            fig = plt.figure(constrained_layout=True, figsize=(8,6))
+            gs = fig.add_gridspec(2, 3)
+            wfs_ax = fig.add_subplot(gs[0, 0:2])
+            wfs_ax.get_xaxis().set_visible(False)
+            wfs_ax.get_yaxis().set_visible(False)
+            # wfs_ax_Z = inset_axes(wfs_ax, width="100%", height="100%")#, bbox_to_anchor=(.7, .5, .3, .5))
+            wfs_ax_Z = wfs_ax.inset_axes([0, 0.666666, 1.0, 0.333333])#wfs_ax, width="100%", height="30%", loc=1)#, bbox_to_anchor=(.7, .5, .3, .5))
+            wfs_ax_N = wfs_ax.inset_axes([0, 0.333333, 1.0, 0.333333])#wfs_ax, width="100%", height="30%", loc=2)
+            wfs_ax_E = wfs_ax.inset_axes([0, 0.0, 1.0, 0.333333])#wfs_ax, width="100%", height="30%", loc=3)
+            text_ax = fig.add_subplot(gs[0, 2])
+            text_ax.axis('off')
+            ne_uncorr_ax = fig.add_subplot(gs[1, 0])
+            ne_corr_ax = fig.add_subplot(gs[1, 1])
+            phi_dt_ax = fig.add_subplot(gs[1, 2])
 
-        # plt.figure()
-        # plt.plot(tr_Q.data, tr_T.data)
-        # st_LQT_curr_sws_removed = remove_splitting(st_LQT_curr, phis[0], lags[0])
-        # plt.plot(st_LQT_curr_sws_removed.select(channel="??Q")[0].data, st_LQT_curr_sws_removed.select(channel="??T")[0].data)
-        # plt.show()
-        # fig, ax = plt.subplots(nrows=2)
-        # ax[0].plot(tr_Q.data)
-        # ax[0].plot(tr_T.data)
-        # ax[1].plot(st_LQT_curr_sws_removed.select(channel="??Q")[0].data)
-        # ax[1].plot(st_LQT_curr_sws_removed.select(channel="??T")[0].data)
-        # plt.show()
+            # Plot data on figure:
+            t = np.arange(len(st_ZNE_curr.select(channel="??Z")[0].data)) / st_ZNE_curr.select(channel="??Z")[0].stats.sampling_rate
+            # Waveforms:
+            wfs_ax_Z.plot(t, st_ZNE_curr.select(channel="??Z")[0].data, c='k')
+            wfs_ax_N.plot(t, st_ZNE_curr.select(channel="??N")[0].data, c='k')
+            wfs_ax_E.plot(t, st_ZNE_curr.select(channel="??E")[0].data, c='k')
+            wfs_ax_Z.plot(t, st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data, c='#D73215')
+            wfs_ax_N.plot(t, st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='#D73215')
+            wfs_ax_E.plot(t, st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, c='#D73215')
+            fs = st_ZNE_curr.select(channel="??N")[0].stats.sampling_rate
+            for i in range(len(self.event_station_win_idxs[station]['win_start_idxs'])):
+                wfs_ax_N.axvline(x = self.event_station_win_idxs[station]['win_start_idxs'][i] / fs, c='k', alpha=0.25)
+                wfs_ax_N.axvline(x = self.event_station_win_idxs[station]['win_end_idxs'][i] / fs, c='k', alpha=0.25)
+                wfs_ax_E.axvline(x = self.event_station_win_idxs[station]['win_start_idxs'][i] / fs, c='k', alpha=0.25)
+                wfs_ax_E.axvline(x = self.event_station_win_idxs[station]['win_end_idxs'][i] / fs, c='k', alpha=0.25)
+            wfs_ax_Z.set_xlim(np.min(t), np.max(t))
+            wfs_ax_N.set_xlim(np.min(t), np.max(t))
+            wfs_ax_E.set_xlim(np.min(t), np.max(t))
+            # Uncorr NE:
+            max_amp_NE = np.max(np.maximum(np.abs(st_ZNE_curr.select(channel="??N")[0].data), np.abs(st_ZNE_curr.select(channel="??E")[0].data)))
+            ne_uncorr_ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data)
+            ne_uncorr_ax.set_xlim(-1.1*max_amp_NE, 1.1*max_amp_NE)
+            ne_uncorr_ax.set_ylim(-1.1*max_amp_NE, 1.1*max_amp_NE)
+            # Corr NE:
+            ne_corr_ax.plot(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, st_ZNE_curr_sws_corrected.select(channel="??N")[0].data)
+            ne_corr_ax.set_xlim(-1.1*max_amp_NE, 1.1*max_amp_NE)
+            ne_corr_ax.set_ylim(-1.1*max_amp_NE, 1.1*max_amp_NE)
+            # phi - dt space:
+            Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
+            Z = self.phi_dt_grid_average[station]
+            phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma_r")
+            phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g')
+            # Add text:
+            text_ax.text(0,0,"Event origin time : \n"+str(self.origin_time), fontsize='small')
+            text_ax.text(0,-1,"Station : "+station, fontsize='small')
+            text_ax.text(0,-2,"$\phi_{QT coords}$ : "+str(phi_curr)+"$^o$"+" +/-"+str(phi_err_curr), fontsize='small')
+            text_ax.text(0,-3,"$\phi$ ($^o$ from N) : "+str(round(float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_N']),1))+"$^o$"+" +/-"+str(phi_err_curr), fontsize='small')
+            text_ax.text(0,-4,"$\delta$ $t$ : "+str(dt_curr)+"$s$"+" +/-"+str(dt_err_curr), fontsize='small')
+            text_ax.set_ylim(-2,10)
+            text_ax.set_ylim(-8,2)
 
-        # # Plot phi-dt space:
-        # plt.figure()
-        # Y, X = np.meshgrid(splitting_event.phis_labels, splitting_event.lags_labels)
-        # Z = np.average(splitting_event.grid_search_results_all_win, axis=0)
-        # plt.contourf(X, Y, Z, levels=10)
-        # min_idxs = np.where(Z == np.min(Z)) 
-        # print(min_idxs, Z.shape)
-        # plt.scatter(splitting_event.lags_labels[min_idxs[0]], splitting_event.phis_labels[min_idxs[1]], c='r')
-        # plt.colorbar()
-        # plt.show()
+
+            # And do some plot labelling:
+            wfs_ax_E.set_xlabel("Time (s)")
+            wfs_ax_Z.set_ylabel("Z amp.")
+            wfs_ax_N.set_ylabel("N amp.")
+            wfs_ax_E.set_ylabel("E amp.")
+            ne_uncorr_ax.set_xlabel('E')
+            ne_uncorr_ax.set_ylabel('N')
+            ne_corr_ax.set_xlabel('E')
+            ne_corr_ax.set_ylabel('N')
+            phi_dt_ax.set_xlabel('$\delta$ t (s)')
+            phi_dt_ax.set_ylabel('$\phi$ ($^o$)')
+
+            # plt.colorbar()
+            plt.tight_layout()
+            if out_fname:
+                plt.savefig(out_fname, dpi=300)
+            plt.show()
+
     
     
