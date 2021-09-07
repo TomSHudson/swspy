@@ -99,8 +99,8 @@ def remove_splitting(st_LQT_uncorr, phi, dt):
     fs = st_LQT_uncorr.select(channel="??T")[0].stats.sampling_rate
     # 1. Rotate data into splitting coordinates:
     x, y = _rotate_QT_comps(x_in, y_in, phi * np.pi/180)
-    # 2. Apply reverse time shift to Q data only:
-    y = np.roll(y, -int(dt * fs))
+    # 2. Apply reverse time shift to T data only:
+    x = np.roll(x, -int(dt * fs))
     # 3. And rotate back to QT coordinates:
     x, y = _rotate_QT_comps(x, y, -phi * np.pi/180)
     # And save data for output:
@@ -201,7 +201,7 @@ def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_
 
                 # Loop over time shifts:
                 for i in range(n_t_steps):
-                    t_samp_shift_curr = int( i - ( n_t_steps / 2.) )
+                    t_samp_shift_curr = - int( i ) # (note: the minus sign as lag so need to shift back, if assume slow direction aligned with T)
                     # Time-shift data (note: only shift one set of data (rotated T in this case)):
                     rolled_rot_Q_curr = rot_Q_curr #np.roll(rot_Q_curr, t_samp_shift_curr)
                     rolled_rot_T_curr = np.roll(rot_T_curr, t_samp_shift_curr)
@@ -274,7 +274,7 @@ class create_splitting_object:
         # Define attributes:
         self.overall_win_start_pre_fast_S_pick = 0.1
         self.overall_win_start_post_fast_S_pick = 0.2
-        self.win_S_pick_tolerance = 0.01
+        self.win_S_pick_tolerance = 0.1
         self.rotate_step_deg = 2.0
         self.max_t_shift_s = 0.1
         self.n_win = 10
@@ -303,7 +303,7 @@ class create_splitting_object:
 
         # Setup datastores:
         grid_search_results_all_win = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
-        lags_labels = np.arange(-n_t_steps / 2., n_t_steps / 2., 1) / fs 
+        lags_labels = np.arange(0., n_t_steps, 1) / fs 
         phis_labels = np.arange(-90, 90 + rotate_step_deg, rotate_step_deg)
 
         # Perform grid search:
@@ -591,6 +591,12 @@ class create_splitting_object:
             # Plot data on figure:
             t = np.arange(len(st_ZNE_curr.select(channel="??Z")[0].data)) / st_ZNE_curr.select(channel="??Z")[0].stats.sampling_rate
             # Waveforms:
+            max_amp = 0.
+            max_amp = np.max(np.abs(st_ZNE_curr.select(channel="??Z")[0].data))
+            if np.max(np.abs(st_ZNE_curr.select(channel="??N")[0].data)) > max_amp:
+                max_amp = np.max(np.abs(st_ZNE_curr.select(channel="??N")[0].data))
+            if np.max(np.abs(st_ZNE_curr.select(channel="??E")[0].data)) > max_amp:
+                max_amp = np.max(np.abs(st_ZNE_curr.select(channel="??E")[0].data))
             wfs_ax_Z.plot(t, st_ZNE_curr.select(channel="??Z")[0].data, c='k')
             wfs_ax_N.plot(t, st_ZNE_curr.select(channel="??N")[0].data, c='k')
             wfs_ax_E.plot(t, st_ZNE_curr.select(channel="??E")[0].data, c='k')
@@ -606,15 +612,17 @@ class create_splitting_object:
             wfs_ax_Z.set_xlim(np.min(t), np.max(t))
             wfs_ax_N.set_xlim(np.min(t), np.max(t))
             wfs_ax_E.set_xlim(np.min(t), np.max(t))
+            wfs_ax_Z.set_ylim(-1.1*max_amp, 1.1*max_amp)
+            wfs_ax_N.set_ylim(-1.1*max_amp, 1.1*max_amp)
+            wfs_ax_E.set_ylim(-1.1*max_amp, 1.1*max_amp)
             # Uncorr NE:
-            max_amp_NE = np.max(np.maximum(np.abs(st_ZNE_curr.select(channel="??N")[0].data), np.abs(st_ZNE_curr.select(channel="??E")[0].data)))
             ne_uncorr_ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data)
-            ne_uncorr_ax.set_xlim(-1.1*max_amp_NE, 1.1*max_amp_NE)
-            ne_uncorr_ax.set_ylim(-1.1*max_amp_NE, 1.1*max_amp_NE)
+            ne_uncorr_ax.set_xlim(-1.1*max_amp, 1.1*max_amp)
+            ne_uncorr_ax.set_ylim(-1.1*max_amp, 1.1*max_amp)
             # Corr NE:
             ne_corr_ax.plot(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, st_ZNE_curr_sws_corrected.select(channel="??N")[0].data)
-            ne_corr_ax.set_xlim(-1.1*max_amp_NE, 1.1*max_amp_NE)
-            ne_corr_ax.set_ylim(-1.1*max_amp_NE, 1.1*max_amp_NE)
+            ne_corr_ax.set_xlim(-1.1*max_amp, 1.1*max_amp)
+            ne_corr_ax.set_ylim(-1.1*max_amp, 1.1*max_amp)
             # phi - dt space:
             Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
             Z = self.phi_dt_grid_average[station]
