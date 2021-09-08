@@ -39,14 +39,51 @@ def _rotate_ZNE_to_LQT(st_ZNE, back_azi, event_inclin_angle_at_station):
     return st_LQT
 
 
+def _rotate_LQT_to_BPA(st_LQT, back_azi):
+    """Function to rotate LQT coords into BPA propagation coords, as in Walsh et al. (2013). Requires: st_LQT - stream with traces for 
+    z,r,t components; back_azi - back azimuth angle from reciever to event in degrees from north.
+    Note: L is equivient to B. 
+    Note: Only works for a single station, as only supply a single back azimuth."""
+    # Rotate LQT to BPA:
+    st_BPA = st_LQT.copy()
+    # Convert back-azimuth to radians:
+    back_azi_rad = back_azi * np.pi / 180.
+    # Define rotation matrix (for counter-clockwise rotation):
+    rot_matrix = np.array([[np.cos(back_azi_rad), -np.sin(back_azi_rad)], [np.sin(back_azi_rad), np.cos(back_azi_rad)]])
+    # And perform the rotation (y = Q, P in this case, x = T, A in this case):
+    vec = np.vstack((st_LQT.select(channel="??T")[0].data, st_LQT.select(channel="??Q")[0].data))
+    vec_rot = np.dot(rot_matrix, vec)
+    st_BPA.select(channel="??T")[0].data = np.array(vec_rot[0,:])
+    st_BPA.select(channel="??Q")[0].data = np.array(vec_rot[1,:])
+    return st_BPA
+
+
+def _rot_phi_by_90_deg(phi):
+    """Rotate phi by cyclic 90 degrees."""
+    phi_rot = phi+90.
+    if phi_rot > 90.:
+        phi_rot = -90. + (phi_rot - 90.)
+    return phi_rot
+
+
 def _rotate_LQT_to_ZNE(st_LQT, back_azi, event_inclin_angle_at_station):
     """Function to rotate LQT traces into ZNE and save to outdir.
     Requires: tr_z,tr_r,tr_t - traces for z,r,t components; back_azi - back azimuth angle from reciever to event in degrees from north; 
     event_inclin_angle_at_station - inclination angle of arrival at receiver, in degrees from vertical down."""
-    # Rotate to LQT:
+    # Rotate to ZNE:
     st_ZNE = st_LQT.copy()
     st_ZNE.rotate(method='LQT->ZNE', back_azimuth=back_azi, inclination=event_inclin_angle_at_station)
     return st_ZNE
+
+
+def _rotate_BPA_to_LQT(st_BPA, back_azi):
+    """Function to rotate BPA propagation coords into LQT coords, as in Walsh et al. (2013). Requires: st_LQT - stream with traces for 
+    z,r,t components; back_azi - back azimuth angle from reciever to event in degrees from north.
+    Note: L is equivient to B. 
+    Note: Only works for a single station, as only supply a single back azimuth."""
+    # Rotate BPA to LQT (just inverse angle of LQT -> BPA):
+    st_LQT = _rotate_LQT_to_BPA(st_BPA, -back_azi)
+    return st_LQT
 
 
 def _rotate_QT_comps(data_arr_Q, data_arr_T, rot_angle_rad):
@@ -67,9 +104,9 @@ def _rotate_QT_comps(data_arr_Q, data_arr_T, rot_angle_rad):
     return data_arr_Q_rot, data_arr_T_rot
 
 
-def remove_splitting(st_LQT_uncorr, phi, dt):
+def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_station):
     """
-    Function to remove SWS from LQT rotated data for a single station.
+    Function to remove SWS from ZNE data for a single station.
     Note: Consistency in this function with sws measurement. Uses T in x-direction and Q in y direction 
     convention.
 
@@ -81,6 +118,10 @@ def remove_splitting(st_LQT_uncorr, phi, dt):
         Splitting angle, for LQT coordinates.
     dt : float
         Fast-slow delay time (lag) for splitting.
+    back_azi: float
+        Back azimuth angle from reciever to event in degrees from North.
+    event_inclin_angle_at_station : float
+        Inclination angle of arrival at receiver, in degrees from vertical down.
 
     Returns
     -------
@@ -88,26 +129,36 @@ def remove_splitting(st_LQT_uncorr, phi, dt):
         Corrected data
     """
     # Perform inital data checks:
-    if len(st_LQT_uncorr.select(channel="??Q")) != 1:
-        print("Error: st_LQT_uncorr has more or less than 1 Q component. Exiting.")
+    if len(st_ZNE_uncorr.select(channel="??N")) != 1:
+        print("Error: st_LQT_uncorr has more or less than 1 N component. Exiting.")
         sys.exit()
-    if len(st_LQT_uncorr.select(channel="??T")) != 1:
-        print("Error: st_LQT_uncorr has more or less than 1 T component. Exiting.")
+    if len(st_ZNE_uncorr.select(channel="??E")) != 1:
+        print("Error: st_LQT_uncorr has more or less than 1 E component. Exiting.")
         sys.exit()
+    # Rotate ZNE stream into LQT then BPA propagation coords:
+    st_LQT_uncorr = _rotate_ZNE_to_LQT(st_ZNE_uncorr, back_azi, event_inclin_angle_at_station)
+    st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
     # Perform SWS correction:
-    x_in, y_in = st_LQT_uncorr.select(channel="??T")[0].data, st_LQT_uncorr.select(channel="??Q")[0].data
-    fs = st_LQT_uncorr.select(channel="??T")[0].stats.sampling_rate
+    x_in, y_in = st_BPA_uncorr.select(channel="??T")[0].data, st_LQT_uncorr.select(channel="??Q")[0].data
+    fs = st_BPA_uncorr.select(channel="??T")[0].stats.sampling_rate
     # 1. Rotate data into splitting coordinates:
-    x, y = _rotate_QT_comps(x_in, y_in, phi * np.pi/180)
-    # 2. Apply reverse time shift to T data only:
-    x = np.roll(x, -int(dt * fs))
-    # 3. And rotate back to QT coordinates:
-    x, y = _rotate_QT_comps(x, y, -phi * np.pi/180)
-    # And save data for output:
-    st_LQT_corr = st_LQT_uncorr.copy()
-    st_LQT_corr.select(channel="??T")[0].data = x 
-    st_LQT_corr.select(channel="??Q")[0].data = y
-    return st_LQT_corr
+    y, x = _rotate_QT_comps(y_in, x_in, phi * np.pi/180)
+    # 2. Apply reverse time shift to Q and T data:
+    x = np.roll(x, -int((dt / 2) * fs))
+    y = np.roll(y, int((dt / 2) * fs))
+    # 3. And rotate back to QT (PA) coordinates:
+    y, x = _rotate_QT_comps(y, x, -phi * np.pi/180)
+    # And put data back in stream form:
+    st_BPA_corr = st_BPA_uncorr.copy()
+    st_BPA_corr.select(channel="??T")[0].data = x 
+    st_BPA_corr.select(channel="??Q")[0].data = y
+    # And rotate back into ZNE coords:
+    st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr, back_azi)
+    st_ZNE_corr = _rotate_LQT_to_ZNE(st_LQT_corr, back_azi, event_inclin_angle_at_station)
+    # And tidy:
+    del st_LQT_uncorr, st_BPA_uncorr, st_LQT_corr, st_BPA_corr
+    gc.collect()
+    return st_ZNE_corr
 
 
 # def get_cov_eigen_values(x,y):
@@ -189,22 +240,23 @@ def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_
 
             # Loop over angles:
             for j in range(n_angle_steps):
-                angle_shift_rad_curr = j * rotate_step_deg * np.pi / 180.
+                angle_shift_rad_curr = ((j * rotate_step_deg) - 90.) * np.pi / 180. # (Note: -90 as should loop between -90 and 90 (see phi_labels))
 
                 # Rotate QT waveforms by angle:
                 # (Note: Explicit rotation specification as wrapped in numba):
                 # Convert angle from counter-clockwise from x to clockwise:
                 theta_rot = -angle_shift_rad_curr
                 # Perform the rotation explicitely (avoiding creating additional arrays):
+                # (Q = y, T = x)
                 rot_T_curr = (data_arr_T[start_win_idx:end_win_idx] * np.cos(theta_rot)) - (data_arr_Q[start_win_idx:end_win_idx] * np.sin(theta_rot))
                 rot_Q_curr = (data_arr_T[start_win_idx:end_win_idx] * np.sin(theta_rot)) + (data_arr_Q[start_win_idx:end_win_idx] * np.cos(theta_rot))
 
                 # Loop over time shifts:
                 for i in range(n_t_steps):
-                    t_samp_shift_curr = - int( i ) # (note: the minus sign as lag so need to shift back, if assume slow direction aligned with T)
-                    # Time-shift data (note: only shift one set of data (rotated T in this case)):
-                    rolled_rot_Q_curr = rot_Q_curr #np.roll(rot_Q_curr, t_samp_shift_curr)
-                    rolled_rot_T_curr = np.roll(rot_T_curr, t_samp_shift_curr)
+                    t_samp_shift_curr = int( i ) # (note: the minus sign as lag so need to shift back, if assume slow direction aligned with T)
+                    # Time-shift data (note: + dt for fast dir (rot Q), and -dt for slow dir (rot T)):
+                    rolled_rot_Q_curr = np.roll(rot_Q_curr, +int(t_samp_shift_curr/2.))
+                    rolled_rot_T_curr = np.roll(rot_T_curr, -int(t_samp_shift_curr/2.))
 
                     # Calculate eigenvalues:
                     xy_arr = np.vstack((rolled_rot_T_curr, rolled_rot_Q_curr))
@@ -409,12 +461,6 @@ class create_splitting_object:
         opt_lag_err = smallest_var_cluster['lag_errs'][opt_obs_idx]
         opt_phi_err = smallest_var_cluster['phi_errs'][opt_obs_idx]
 
-        # plt.figure(figsize=(3,3))
-        # plt.scatter(samples_new_coords[:,0], samples_new_coords[:,1])
-        # plt.xlim(-1.1,1.1)
-        # plt.ylim(-1.1,1.1)
-        # plt.show()
-
         return opt_phi, opt_lag, opt_phi_err, opt_lag_err
 
     
@@ -453,7 +499,7 @@ class create_splitting_object:
                 stations_list.append(tr.stats.station)
         self.stations_list = stations_list
         for station in stations_list:
-            # 1. Rotate channels into LQT coordinate system:
+            # 1. Rotate channels into LQT and BPA coordinate systems:
             # Note: Always rotates to LQT, regardless of specified coord_system, 
             #       but if coord_system = ZNE then will set ray to come in 
             #       vertically.
@@ -472,25 +518,28 @@ class create_splitting_object:
             except KeyError:
                 print("No S phase pick for station:", station, "therefore skipping this station.")
                 continue
+            # And rotate into emerging ray coord system, LQT:
             st_LQT_curr = _rotate_ZNE_to_LQT(st_ZNE_curr, back_azi, event_inclin_angle_at_station)
-            del st_ZNE_curr
+            # And rotate into propagation coordinate system (as in Walsh et al. (2013)), BPA:
+            st_BPA_curr = _rotate_LQT_to_BPA(st_LQT_curr, back_azi)
+            del st_ZNE_curr, st_LQT_curr
             gc.collect()
 
             # 2. Get horizontal channels and trim to pick:
-            st_LQT_curr.trim(starttime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] - self.overall_win_start_pre_fast_S_pick,
+            st_BPA_curr.trim(starttime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] - self.overall_win_start_pre_fast_S_pick,
                                 endtime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] + self.overall_win_start_post_fast_S_pick 
                                             + self.max_t_shift_s)
-            tr_Q = st_LQT_curr.select(station=station, channel="??Q")[0]
-            tr_T = st_LQT_curr.select(station=station, channel="??T")[0]
+            tr_P = st_BPA_curr.select(station=station, channel="??Q")[0]
+            tr_A = st_BPA_curr.select(station=station, channel="??T")[0]
 
             # 3. Get window indices:
-            self.fs = tr_T.stats.sampling_rate
+            self.fs = tr_A.stats.sampling_rate
             win_start_idxs, win_end_idxs = self._select_windows()
 
             # 4. Calculate splitting angle and delay times for windows:
             # (Silver and Chan (1991) and Teanby2004 eigenvalue method)
             # 4.a. Get data for all windows:
-            grid_search_results_all_win, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs, win_end_idxs)
+            grid_search_results_all_win, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_P.data, tr_A.data, win_start_idxs, win_end_idxs)
             self.grid_search_results_all_win = grid_search_results_all_win
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
@@ -509,7 +558,7 @@ class create_splitting_object:
                 phis[i] = self.phis_labels[min_idxs[1][0]]
                 # Get associated error (from f-test with 95% confidence interval):
                 # (Note: Uses transverse trace for dof estimation (see Silver and Chan 1991))
-                phi_errs[i], lag_errs[i] = self._get_phi_and_lag_errors(grid_search_result_curr_win, self.lags_labels[first_pos_idx:], phis_labels, tr_T)
+                phi_errs[i], lag_errs[i] = self._get_phi_and_lag_errors(grid_search_result_curr_win, self.lags_labels[first_pos_idx:], phis_labels, tr_A)
 
             # 6. Perform clustering for all windows to find best result:
             # (Teanby2004 method, but in new coordinate space with dbscan clustering)
@@ -556,20 +605,16 @@ class create_splitting_object:
             except KeyError:
                 print("No S phase pick for station:", station, "therefore skipping this station.")
                 continue
-            st_LQT_curr = _rotate_ZNE_to_LQT(st_ZNE_curr, back_azi, event_inclin_angle_at_station)
             st_ZNE_curr.trim(starttime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] - self.overall_win_start_pre_fast_S_pick,
                     endtime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] + self.overall_win_start_post_fast_S_pick 
                                 + self.max_t_shift_s)
-            st_LQT_curr.trim(starttime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] - self.overall_win_start_pre_fast_S_pick,
-                    endtime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] + self.overall_win_start_post_fast_S_pick 
-                                + self.max_t_shift_s)
+
             # And remove splitting:
             phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi'])
             dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
             phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
             dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
-            st_LQT_curr_sws_corrected = remove_splitting(st_LQT_curr, phi_curr, dt_curr)
-            st_ZNE_curr_sws_corrected = _rotate_LQT_to_ZNE(st_LQT_curr_sws_corrected, back_azi, event_inclin_angle_at_station)
+            st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station)
 
             # Plot data:
             # Setup figure:
@@ -633,9 +678,10 @@ class create_splitting_object:
             text_ax.text(0,-1,"Station : "+station, fontsize='small')
             text_ax.text(0,-2,"$\phi_{QT coords}$ : "+str(phi_curr)+"$^o$"+" +/-"+str(phi_err_curr), fontsize='small')
             text_ax.text(0,-3,"$\phi$ ($^o$ from N) : "+str(round(float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_N']),1))+"$^o$"+" +/-"+str(phi_err_curr), fontsize='small')
-            text_ax.text(0,-4,"$\delta$ $t$ : "+str(dt_curr)+"$s$"+" +/-"+str(dt_err_curr), fontsize='small')
-            text_ax.set_ylim(-2,10)
-            text_ax.set_ylim(-8,2)
+            text_ax.text(0,-4,"$\delta$ $t$ : "+str(dt_curr)+"$s$"+" +/-"+str(round(dt_err_curr, 5)), fontsize='small')
+            text_ax.text(0,-5,"Coord. sys. : "+self.coord_system, fontsize='small')
+            text_ax.set_xlim(-2,10)
+            text_ax.set_ylim(-10,2)
 
 
             # And do some plot labelling:
