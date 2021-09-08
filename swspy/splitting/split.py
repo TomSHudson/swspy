@@ -137,21 +137,22 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         sys.exit()
     # Rotate ZNE stream into LQT then BPA propagation coords:
     st_LQT_uncorr = _rotate_ZNE_to_LQT(st_ZNE_uncorr, back_azi, event_inclin_angle_at_station)
+    print(back_azi, event_inclin_angle_at_station)
     st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
     # Perform SWS correction:
-    x_in, y_in = st_BPA_uncorr.select(channel="??T")[0].data, st_LQT_uncorr.select(channel="??Q")[0].data
+    x_in, y_in = st_BPA_uncorr.select(channel="??Q")[0].data, st_LQT_uncorr.select(channel="??T")[0].data
     fs = st_BPA_uncorr.select(channel="??T")[0].stats.sampling_rate
     # 1. Rotate data into splitting coordinates:
-    y, x = _rotate_QT_comps(y_in, x_in, phi * np.pi/180)
+    x, y = _rotate_QT_comps(x_in, y_in, phi * np.pi/180)
     # 2. Apply reverse time shift to Q and T data:
-    x = np.roll(x, -int((dt / 2) * fs))
-    y = np.roll(y, int((dt / 2) * fs))
+    x = np.roll(x, int((dt / 2) * fs))
+    y = np.roll(y, -int((dt / 2) * fs))
     # 3. And rotate back to QT (PA) coordinates:
-    y, x = _rotate_QT_comps(y, x, -phi * np.pi/180)
+    x, y = _rotate_QT_comps(x, y, -phi * np.pi/180)
     # And put data back in stream form:
     st_BPA_corr = st_BPA_uncorr.copy()
-    st_BPA_corr.select(channel="??T")[0].data = x 
-    st_BPA_corr.select(channel="??Q")[0].data = y
+    st_BPA_corr.select(channel="??Q")[0].data = x 
+    st_BPA_corr.select(channel="??T")[0].data = y
     # And rotate back into ZNE coords:
     st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr, back_azi)
     st_ZNE_corr = _rotate_LQT_to_ZNE(st_LQT_corr, back_azi, event_inclin_angle_at_station)
@@ -488,7 +489,7 @@ class create_splitting_object:
         self.coord_system = coord_system
 
         # Create datastores:
-        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_from_N': [], 'phi_err': [], 'dt': [], 'dt_err': []})
+        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_err': [], 'dt': [], 'dt_err': []})
         self.phi_dt_grid_average = {}
         self.event_station_win_idxs = {}
 
@@ -510,6 +511,7 @@ class create_splitting_object:
                     back_azi = back_azi - 360.
                 if self.coord_system == "LQT":
                     event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
+                    print("Warning: LQT coord. system not yet fully tested. \n Might produce spurious results...")
                 elif self.coord_system == "ZNE":
                     event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence, simulating NE components.
                 else:
@@ -565,10 +567,10 @@ class create_splitting_object:
             opt_phi, opt_lag, opt_phi_err, opt_lag_err = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
 
             # 7. Rotate output phi back into angle relative to N:
-            opt_phi_from_N = self._rot_phi_from_sws_coords_to_deg_from_N(opt_phi, back_azi)
+            # opt_phi_from_N = self._rot_phi_from_sws_coords_to_deg_from_N(opt_phi, back_azi)
 
             # 8. And append data to overall datastore:
-            df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_from_N': [opt_phi_from_N], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err]})
+            df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err]})
             self.sws_result_df = self.sws_result_df.append(df_tmp)
             opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
             opt_lag_idx = np.where(self.lags_labels == opt_lag)[0][0]
@@ -599,6 +601,7 @@ class create_splitting_object:
                     event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
                 elif self.coord_system == "ZNE":
                     event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence, simulating NE components.
+                    # event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
                 else:
                     print("Error: coord_system =", self.coord_system, "not supported. Exiting.")
                     sys.exit()
@@ -677,7 +680,6 @@ class create_splitting_object:
             text_ax.text(0,0,"Event origin time : \n"+str(self.origin_time), fontsize='small')
             text_ax.text(0,-1,"Station : "+station, fontsize='small')
             text_ax.text(0,-2,"$\phi_{QT coords}$ : "+str(phi_curr)+"$^o$"+" +/-"+str(phi_err_curr), fontsize='small')
-            text_ax.text(0,-3,"$\phi$ ($^o$ from N) : "+str(round(float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_N']),1))+"$^o$"+" +/-"+str(phi_err_curr), fontsize='small')
             text_ax.text(0,-4,"$\delta$ $t$ : "+str(dt_curr)+"$s$"+" +/-"+str(round(dt_err_curr, 5)), fontsize='small')
             text_ax.text(0,-5,"Coord. sys. : "+self.coord_system, fontsize='small')
             text_ax.set_xlim(-2,10)
