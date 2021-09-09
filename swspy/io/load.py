@@ -40,15 +40,17 @@ class load_waveforms:
     archive_vs_file: str (default = "archive")
         Describes what the parameter <path> is associated with. If archive, 
         then <path> is to an archive. If file, then <path> is the path to a 
-        obspy readable file (e.g. mseed).
+        obspy readable file (e.g. mseed). Default is archive.
 
     starttime : obspy UTCDateTime object
         The starttime to cut the data by. Any filters are applied before 
-        cutting.
+        cutting. If not supplied then will load all data from the supplied 
+        file path (archive_vs_file must = file for this to be valid).
     
     endtime : obspy UTCDateTime object
         The endtime to cut the data by. Any filters are applied before 
-        cutting.
+        cutting. If not supplied then will load all data from the supplied 
+        file path (archive_vs_file must = file for this to be valid).
 
     Attributes
     ----------
@@ -76,18 +78,29 @@ class load_waveforms:
 
     """
 
-    def __init__(self, path, starttime, endtime, archive_vs_file="archive"):
+    def __init__(self, path, starttime=None, endtime=None, archive_vs_file="archive"):
         "Initiate load_waveforms object."
         # Specified directly by user:
         self.path = path
         self.starttime = starttime
         self.endtime = endtime
+        self.archive_vs_file = archive_vs_file
         # Optional attributes:
         self.filter = False
         self.filter_freq_min_max = [1.0, 50.0]
         self.zero_phase = True
         self.remove_response = False
         self.response_file_path = None
+        # Do some initial checks:
+        if not starttime:
+            if archive_vs_file != "file":
+                print("Error: starttime and endtime must be specified if archive_vs_file is archive not file")
+                raise
+        if not endtime:
+            if archive_vs_file != "file":
+                print("Error: starttime and endtime must be specified if archive_vs_file is archive not file")
+                raise
+
 
     def _force_stream_sample_alignment(self, st):
         """Function to force alignment if samples are out by less than a sample."""
@@ -118,23 +131,31 @@ class load_waveforms:
         # initiate any further variables specified by user:
         self.stations = stations
         self.channels = channels
+        self.event_uid = "*"
 
         # Load data:
-        year = self.starttime.year
-        julday = self.starttime.julday
-        datadir = os.path.join(self.path, str(year), str(julday).zfill(3))
+        if self.archive_vs_file == "archive":
+            year = self.starttime.year
+            julday = self.starttime.julday
+            datadir = os.path.join(self.path, str(year), str(julday).zfill(3))
+        elif self.archive_vs_file == "file":
+            datadir = os.path.dirname(self.path)
+            self.event_uid = self.path.split(os.path.sep)[-1]
+        else:
+            print("Error: archive_vs_file = "+self.archive_vs_file+" is not recognised. Exiting.")
+            raise 
         st = obspy.Stream()
         # Loop over stations (if specified):
         if self.stations:
             for station in self.stations:
-                st_tmp = obspy.read(os.path.join(datadir, ''.join(("*", station, "*", 
+                st_tmp = obspy.read(os.path.join(datadir, ''.join(("*", self.event_uid, station, "*", 
                                     self.channels, "*")))).detrend("demean")
                 for tr_tmp in st_tmp:
                     st.append(tr_tmp)
                 del st_tmp
                 gc.collect()
         else:
-            st = obspy.read(os.path.join(datadir, ''.join(("*", self.channels, 
+            st = obspy.read(os.path.join(datadir, ''.join(("*", self.event_uid, "*", self.channels, 
                                 "*")))).detrend("demean")
 
         # Apply any filtering, if specified:
@@ -143,7 +164,9 @@ class load_waveforms:
                         corners=4, zerophase=self.zero_phase)
 
         # Trim data:
-        st.trim(starttime=self.starttime, endtime=self.endtime)
+        if self.starttime:
+            if self.endtime:
+                st.trim(starttime=self.starttime, endtime=self.endtime)
 
         # Force allignment:
         st = self._force_stream_sample_alignment(st)
