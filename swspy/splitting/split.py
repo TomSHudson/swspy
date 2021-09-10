@@ -320,6 +320,9 @@ class create_splitting_object:
             then will use this data for the event rather than <stations>, 
             <back_azis_all_stations> and <receiver_inc_angles_all_stations>. 
 
+        event_uid : str
+            Event unique identifying string. For saving data.
+
         stations_in : list of strs
             List of stations to process, corresponding to order of values in the lists 
             <back_azis_all_stations> and <receiver_inc_angles_all_stations>. All station 
@@ -389,6 +392,8 @@ class create_splitting_object:
         self.rotate_step_deg = 2.0
         self.max_t_shift_s = 0.1
         self.n_win = 10
+        # Testing params:
+        self.plot_once = True
 
     def _select_windows(self):
         """
@@ -440,8 +445,8 @@ class create_splitting_object:
             interp_spline = interpolate.RectBivariateSpline(lags_labels, phis_labels, phi_dt_single_win)
             error_surf = interp_spline(np.linspace(x_tmp[0], x_tmp[-1], interp_fac*len(x_tmp)), np.linspace(y_tmp[0], y_tmp[-1], interp_fac*len(y_tmp)))
             # And update dt and phi labels to correspond to interpolated error surface:
-            lag_labels = np.linspace(x_tmp[0], x_tmp[-1], interp_fac*len(x_tmp))
-            phi_labels = np.linspace(y_tmp[0], y_tmp[-1], interp_fac*len(y_tmp))
+            lags_labels = np.linspace(x_tmp[0], x_tmp[-1], interp_fac*len(x_tmp))
+            phis_labels = np.linspace(y_tmp[0], y_tmp[-1], interp_fac*len(y_tmp))
         else:
             error_surf = phi_dt_single_win
 
@@ -450,6 +455,14 @@ class create_splitting_object:
         dof = calc_dof(tr_for_dof.data)
         conf_bound = ftest(error_surf, dof, alpha=0.05, k=2)
         conf_mask = error_surf <= conf_bound
+
+        # if self.plot_once:
+        #     print(lags_labels)
+        #     plt.figure()
+        #     Y, X = np.meshgrid(phis_labels, lags_labels)
+        #     plt.pcolormesh(X, Y, error_surf)
+        #     plt.show()
+        #     self.plot_once = False
 
         # Find lag dt error:
         # (= 1/4 width of confidence box (see Silver1991))
@@ -653,8 +666,7 @@ class create_splitting_object:
         return self.sws_result_df
 
 
-
-    def plot(self, out_fname=None, suppress_direct_plotting=False):
+    def plot(self, outdir=None, suppress_direct_plotting=False):
         """Function to perform plotting...
         """
         # Loop over stations, plotting:
@@ -778,13 +790,14 @@ class create_splitting_object:
 
             # plt.colorbar()
             plt.tight_layout()
-            if out_fname:
-                plt.savefig(out_fname, dpi=300)
+            if outdir:
+                plt.savefig(os.path.join(outdir, ''.join((self.event_uid, ".png"))), dpi=300)
             if not suppress_direct_plotting:
                 plt.show()
             else:
                 plt.close()
     
+
     def save_result(self, outdir=os.getcwd()):
         """Function to save output. Output is a csv file with all the splitting data for the event, 
         for all stations. Saves result as <event_uid>, to <outdir>."""

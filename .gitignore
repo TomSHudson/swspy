@@ -129,4 +129,4 @@ dmypy.json
 .pyre/
 
 # Other manual edits:
-examples/sks_example/output_plots/*.png
+examples/sks_example/outputs/plots/*.png

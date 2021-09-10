@@ -1,2 +1,2 @@
-,station,phi,phi_err,dt,dt_err
-0,COR,87.0,0.5,2.0,22.625
+station,phi,phi_err,dt,dt_err
+COR,76.0,0.5,1.6,0.7

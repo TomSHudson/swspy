@@ -1,2 +1,2 @@
-,station,phi,phi_err,dt,dt_err
-0,DAN,85.0,0.5,1.0,1.125
+station,phi,phi_err,dt,dt_err
+DAN,-90.0,0.5,1.2,9.05
