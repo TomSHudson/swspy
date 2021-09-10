@@ -306,7 +306,7 @@ class create_splitting_object:
 
     """
 
-    def __init__(self, st, nonlinloc_event_path=None, stations_in=[], S_phase_arrival_times=[], back_azis_all_stations=[], receiver_inc_angles_all_stations=[]):
+    def __init__(self, st, nonlinloc_event_path=None, event_uid=None, stations_in=[], S_phase_arrival_times=[], back_azis_all_stations=[], receiver_inc_angles_all_stations=[]):
         """Initiate the class object.
 
         Parameters
@@ -374,6 +374,14 @@ class create_splitting_object:
             self.origin_time = self.nonlinloc_hyp_data.origin_time
         else:
             self.origin_time = self.st[0].stats.starttime 
+        if event_uid:
+            self.event_uid = event_uid
+        else:
+            if nonlinloc_event_path:
+                nonlinloc_fname_tmp = os.path.split(nonlinloc_event_path)[-1]
+                self.event_uid = ''.join((nonlinloc_fname_tmp.split('.')[2], nonlinloc_fname_tmp.split('.')[3]))
+            else:
+                self.event_uid = st[0].stats.starttime.strftime("%Y%m%d%H%M%S")
         # Define attributes:
         self.overall_win_start_pre_fast_S_pick = 0.1
         self.overall_win_start_post_fast_S_pick = 0.2
@@ -646,7 +654,7 @@ class create_splitting_object:
 
 
 
-    def plot(self, out_fname=None):
+    def plot(self, out_fname=None, suppress_direct_plotting=False):
         """Function to perform plotting...
         """
         # Loop over stations, plotting:
@@ -747,13 +755,13 @@ class create_splitting_object:
             phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
             phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g')
             # Add text:
-            text_ax.text(0,0,"Event origin time : \n"+str(self.origin_time), fontsize='small')
+            text_ax.text(0,0,"Event origin time : \n"+self.origin_time.strftime("%Y-%m-%dT%H:%M:%SZ"), fontsize='small')
             text_ax.text(0,-1,"Station : "+station, fontsize='small')
-            text_ax.text(0,-2,"$\phi_{QT coords}$ : "+str(phi_curr)+"$^o$"+" +/-"+str(phi_err_curr), fontsize='small')
-            text_ax.text(0,-4,"$\delta$ $t$ : "+str(dt_curr)+"$s$"+" +/-"+str(round(dt_err_curr, 5)), fontsize='small')
-            text_ax.text(0,-5,"Coord. sys. : "+self.coord_system, fontsize='small')
+            text_ax.text(0,-2,"$\phi$ : "+str(phi_curr)+"$^o$"+" +/-"+str(phi_err_curr)+"$^o$", fontsize='small')
+            text_ax.text(0,-3,"$\delta$ $t$ : "+str(dt_curr)+" +/-"+str(round(dt_err_curr, 5))+" $s$", fontsize='small')
+            text_ax.text(0,-4,"Coord. sys. : "+self.coord_system, fontsize='small')
             text_ax.set_xlim(-2,10)
-            text_ax.set_ylim(-10,2)
+            text_ax.set_ylim(-8,2)
 
 
             # And do some plot labelling:
@@ -772,7 +780,18 @@ class create_splitting_object:
             plt.tight_layout()
             if out_fname:
                 plt.savefig(out_fname, dpi=300)
-            plt.show()
+            if not suppress_direct_plotting:
+                plt.show()
+            else:
+                plt.close()
+    
+    def save_result(self, outdir=os.getcwd()):
+        """Function to save output. Output is a csv file with all the splitting data for the event, 
+        for all stations. Saves result as <event_uid>, to <outdir>."""
+        fname_out = os.path.join(outdir, ''.join((self.event_uid, "_sws_result.csv")))
+        self.sws_result_df.to_csv(fname_out, index=False)
+        print("Saved sws result to:", fname_out)
+
 
     
     
