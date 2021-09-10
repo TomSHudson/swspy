@@ -137,7 +137,6 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         sys.exit()
     # Rotate ZNE stream into LQT then BPA propagation coords:
     st_LQT_uncorr = _rotate_ZNE_to_LQT(st_ZNE_uncorr, back_azi, event_inclin_angle_at_station)
-    print(back_azi, event_inclin_angle_at_station)
     st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
     # Perform SWS correction:
     x_in, y_in = st_BPA_uncorr.select(channel="??Q")[0].data, st_LQT_uncorr.select(channel="??T")[0].data
@@ -307,7 +306,7 @@ class create_splitting_object:
 
     """
 
-    def __init__(self, st, nonlinloc_event_path):
+    def __init__(self, st, nonlinloc_event_path=None, stations_in=[], S_phase_arrival_times=[], back_azis_all_stations=[], receiver_inc_angles_all_stations=[]):
         """Initiate the class object.
 
         Parameters
@@ -317,13 +316,64 @@ class create_splitting_object:
             channels to perform the splitting on.
 
         nonlinloc_event_path : str
-            Path to NonLinLoc .grid0.loc.hyp file for the event.
+            Path to NonLinLoc .grid0.loc.hyp file for the event. Optional. If supplied, 
+            then will use this data for the event rather than <stations>, 
+            <back_azis_all_stations> and <receiver_inc_angles_all_stations>. 
+
+        stations_in : list of strs
+            List of stations to process, corresponding to order of values in the lists 
+            <back_azis_all_stations> and <receiver_inc_angles_all_stations>. All station 
+            observations must be constained in <st>. Optional. If not specified, or if 
+            <nonlinloc_event_path> specifed then will use <nonlinloc_event_path> instead.
+
+        S_phase_arrival_times : list of obspy UTCDateTime objects
+            List of S arrival times as UTCDateTime objects corresponding to order of 
+            <stations_in>. 
+
+        back_azis_all_stations : list of floats
+            List of back-azimuths for observations at all stations, corresponding to order 
+            of values in the list <stations_in>. Optional. If not specified, or 
+            if <nonlinloc_event_path> specifed then will use <nonlinloc_event_path> instead.
+            Automatically sets all back azimuths to zero if not specified but <stations_in> 
+            is specified. Optional. If not specified, or if <nonlinloc_event_path> specifed 
+            then will use <nonlinloc_event_path> values instead.
+
+        receiver_inc_angles_all_stations : list of floats
+            List of ray inclination angles for observations at all stations, corresponding to 
+            order of values in the list <stations_in>. Optional. If not specified, 
+            or if <nonlinloc_event_path> specifed then will use <nonlinloc_event_path> instead.
+            Automatically sets all inclinations to zero if not specified but <stations_in> 
+            is specified.
+
         """
+        # Perform initial checks:
+        if not nonlinloc_event_path:
+            if len(stations_in) == 0:
+                print("Error: <stations_in>, <back_azis_all_stations> and <receiver_inc_angles_all_stations> must be specified if <nonlinloc_event_path> is not specified.")
+                raise 
+        if len(stations_in) > 0:
+            if len(back_azis_all_stations) == 0:
+                back_azis_all_stations = np.zeros(len(stations_in))
+                receiver_inc_angles_all_stations = np.zeros(len(stations_in))
+        if nonlinloc_event_path:
+            self.stations_in = []
+            self.back_azis_all_stations = []
+            self.receiver_inc_angles_all_stations = []
+            self.S_phase_arrival_times = []
+        else:
+            self.stations_in = stations_in
+            self.back_azis_all_stations = back_azis_all_stations
+            self.receiver_inc_angles_all_stations = receiver_inc_angles_all_stations
+            self.S_phase_arrival_times = S_phase_arrival_times
         # Define parameters:
         self.st = st 
-        self.nonlinloc_hyp_data = read_nonlinloc.read_hyp_file(nonlinloc_event_path)
         self.nonlinloc_event_path = nonlinloc_event_path
-        self.origin_time = self.nonlinloc_hyp_data.origin_time
+        if self.nonlinloc_event_path:
+            self.nonlinloc_hyp_data = read_nonlinloc.read_hyp_file(nonlinloc_event_path)
+        if self.nonlinloc_event_path:
+            self.origin_time = self.nonlinloc_hyp_data.origin_time
+        else:
+            self.origin_time = self.st[0].stats.starttime 
         # Define attributes:
         self.overall_win_start_pre_fast_S_pick = 0.1
         self.overall_win_start_post_fast_S_pick = 0.2
@@ -367,7 +417,7 @@ class create_splitting_object:
         return grid_search_results_all_win, lags_labels, phis_labels
 
 
-    def _get_phi_and_lag_errors(self, phi_dt_single_win, lags_labels, phis_labels, tr_for_dof, interp_fac=4):
+    def _get_phi_and_lag_errors(self, phi_dt_single_win, lags_labels, phis_labels, tr_for_dof, interp_fac=1):
         """
         Finds the error associated with phi and lag for a given grid search window result.
         Returns errors in phi and lag.
@@ -377,17 +427,20 @@ class create_splitting_object:
         # Define the error surface to work with:
         # (Done explicitely simply so that can change easily)
         if interp_fac > 1:
+            x_tmp = lags_labels 
+            y_tmp = phis_labels 
             interp_spline = interpolate.RectBivariateSpline(lags_labels, phis_labels, phi_dt_single_win)
-            x_tmp = lags_labels
-            y_tmp = phis_labels
             error_surf = interp_spline(np.linspace(x_tmp[0], x_tmp[-1], interp_fac*len(x_tmp)), np.linspace(y_tmp[0], y_tmp[-1], interp_fac*len(y_tmp)))
+            # And update dt and phi labels to correspond to interpolated error surface:
+            lag_labels = np.linspace(x_tmp[0], x_tmp[-1], interp_fac*len(x_tmp))
+            phi_labels = np.linspace(y_tmp[0], y_tmp[-1], interp_fac*len(y_tmp))
         else:
             error_surf = phi_dt_single_win
-        
+
         # Find grid search array points where within confidence interval:
         # Use transverse component to calculate dof
         dof = calc_dof(tr_for_dof.data)
-        conf_bound = ftest(phi_dt_single_win, dof, alpha=0.05, k=2)
+        conf_bound = ftest(error_surf, dof, alpha=0.05, k=2)
         conf_mask = error_surf <= conf_bound
 
         # Find lag dt error:
@@ -473,7 +526,7 @@ class create_splitting_object:
         return phi_rot_deg 
 
 
-    def perform_sws_analysis(self, coord_system="LQT"):
+    def perform_sws_analysis(self, coord_system="ZNE"):
         """Function to perform splitting analysis. Works in LQT coordinate system 
         as then performs shear-wave-splitting in 3D.
         
@@ -482,7 +535,7 @@ class create_splitting_object:
         coord_system : str
             Coordinate system to perform analysis in. Options are: LQT, ZNE. Will convert 
             splitting angles back into coordinates relative to ZNE whatever system it 
-            performs the splitting within. Default = LQT. 
+            performs the splitting within. Default = ZNE. 
 
         """
         # Save any parameters to class object:
@@ -517,9 +570,14 @@ class create_splitting_object:
                 else:
                     print("Error: coord_system =", self.coord_system, "not supported. Exiting.")
                     sys.exit()
-            except KeyError:
-                print("No S phase pick for station:", station, "therefore skipping this station.")
-                continue
+            except (KeyError, AttributeError) as e:
+                if len(self.stations_in) > 0:
+                    station_idx_tmp = self.stations_in.index(station)
+                    back_azi = self.back_azis_all_stations[station_idx_tmp]
+                    event_inclin_angle_at_station = self.receiver_inc_angles_all_stations[station_idx_tmp]
+                else:
+                    print("No S phase pick for station:", station, "therefore skipping this station.")
+                    continue
             # And rotate into emerging ray coord system, LQT:
             st_LQT_curr = _rotate_ZNE_to_LQT(st_ZNE_curr, back_azi, event_inclin_angle_at_station)
             # And rotate into propagation coordinate system (as in Walsh et al. (2013)), BPA:
@@ -528,9 +586,12 @@ class create_splitting_object:
             gc.collect()
 
             # 2. Get horizontal channels and trim to pick:
-            st_BPA_curr.trim(starttime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] - self.overall_win_start_pre_fast_S_pick,
-                                endtime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] + self.overall_win_start_post_fast_S_pick 
-                                            + self.max_t_shift_s)
+            if self.nonlinloc_event_path:
+                arrival_time_curr = self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time']
+            else:
+                arrival_time_curr = self.S_phase_arrival_times[station_idx_tmp]
+            st_BPA_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
+                                endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
             tr_P = st_BPA_curr.select(station=station, channel="??Q")[0]
             tr_A = st_BPA_curr.select(station=station, channel="??T")[0]
 
@@ -599,18 +660,27 @@ class create_splitting_object:
                     back_azi = back_azi - 360.
                 if self.coord_system == "LQT":
                     event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
+                    print("Warning: LQT coord. system not yet fully tested. \n Might produce spurious results...")
                 elif self.coord_system == "ZNE":
                     event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence, simulating NE components.
-                    # event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
                 else:
                     print("Error: coord_system =", self.coord_system, "not supported. Exiting.")
                     sys.exit()
-            except KeyError:
-                print("No S phase pick for station:", station, "therefore skipping this station.")
-                continue
-            st_ZNE_curr.trim(starttime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] - self.overall_win_start_pre_fast_S_pick,
-                    endtime=self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time'] + self.overall_win_start_post_fast_S_pick 
-                                + self.max_t_shift_s)
+            except (KeyError, AttributeError) as e:
+                if len(self.stations_in) > 0:
+                    station_idx_tmp = self.stations_in.index(station)
+                    back_azi = self.back_azis_all_stations[station_idx_tmp]
+                    event_inclin_angle_at_station = self.receiver_inc_angles_all_stations[station_idx_tmp]
+                else:
+                    print("No S phase pick for station:", station, "therefore skipping this station.")
+                    continue
+            # And trim data:
+            if self.nonlinloc_event_path:
+                arrival_time_curr = self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time']
+            else:
+                arrival_time_curr = self.S_phase_arrival_times[station_idx_tmp]
+            st_ZNE_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
+                                endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
 
             # And remove splitting:
             phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi'])
@@ -674,7 +744,7 @@ class create_splitting_object:
             # phi - dt space:
             Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
             Z = self.phi_dt_grid_average[station]
-            phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma_r")
+            phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
             phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g')
             # Add text:
             text_ax.text(0,0,"Event origin time : \n"+str(self.origin_time), fontsize='small')

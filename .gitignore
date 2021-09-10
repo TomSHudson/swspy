@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Other manual edits:
+examples/sks_example/output_plots/*.png

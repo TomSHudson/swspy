@@ -78,7 +78,7 @@ class load_waveforms:
 
     """
 
-    def __init__(self, path, starttime=None, endtime=None, archive_vs_file="archive"):
+    def __init__(self, path, starttime=None, endtime=None, archive_vs_file="archive", downsample_factor=1):
         "Initiate load_waveforms object."
         # Specified directly by user:
         self.path = path
@@ -91,6 +91,7 @@ class load_waveforms:
         self.zero_phase = True
         self.remove_response = False
         self.response_file_path = None
+        self.downsample_factor = downsample_factor
         # Do some initial checks:
         if not starttime:
             if archive_vs_file != "file":
@@ -170,6 +171,10 @@ class load_waveforms:
 
         # Force allignment:
         st = self._force_stream_sample_alignment(st)
+
+        # And downsample data, if specified:
+        if self.downsample_factor > 1:
+            st.decimate(self.downsample_factor, no_filter=True)
 
         # And return stream:
         return st 
