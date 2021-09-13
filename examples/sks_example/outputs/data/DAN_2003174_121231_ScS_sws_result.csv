@@ -1,2 +1,2 @@
-station,phi,phi_err,dt,dt_err
-DAN,-90.0,0.5,1.2,9.05
+station,phi,phi_err,dt,dt_err,Q_w
+DAN,-90.0,0.5,1.2,9.05,0.0

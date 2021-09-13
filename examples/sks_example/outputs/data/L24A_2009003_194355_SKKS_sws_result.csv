@@ -1,2 +1,2 @@
-station,phi,phi_err,dt,dt_err
-L24A,88.0,10.5,0.8,4.525
+station,phi,phi_err,dt,dt_err,Q_w
+L24A,88.0,10.5,0.8,4.525,1.0

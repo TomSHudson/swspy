@@ -1,2 +1,2 @@
-station,phi,phi_err,dt,dt_err
-COR,76.0,0.5,1.6,0.7
+station,phi,phi_err,dt,dt_err,Q_w
+COR,76.0,0.5,1.6,0.7,0.952859547921

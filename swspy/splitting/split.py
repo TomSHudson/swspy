@@ -29,6 +29,11 @@ import subprocess
 import gc
 from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
 
+def find_nearest(array,value):
+    idx = (np.abs(array-value)).argmin()
+    return array[idx], idx
+
+
 def _rotate_ZNE_to_LQT(st_ZNE, back_azi, event_inclin_angle_at_station):
     """Function to rotate ZRT traces into LQT and save to outdir.
     Requires: tr_z,tr_r,tr_t - traces for z,r,t components; back_azi - back azimuth angle from reciever to event in degrees from north; 
@@ -228,7 +233,7 @@ def ftest(data, dof, alpha=0.05, k=2, min_max='min'):
 
 
 @jit(nopython=True)
-def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, grid_search_results_all_win):
+def _phi_dt_grid_search_EV(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, grid_search_results_all_win_EV):
     """Function to do numba accelerated grid search of phis and dts."""
 
     # Loop over start and end windows:
@@ -263,12 +268,64 @@ def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_
                     lambdas_unsort = np.linalg.eigvalsh(np.cov(xy_arr))
                     lambdas = np.sort(lambdas_unsort)
 
-                    # And save result to datastores:
-                    # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable)
-                    grid_search_results_all_win[grid_search_idx,i,j] = lambdas[0] / lambdas[1]
+                    # And save eigenvalue results to datastore:
+                    # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable):
+                    grid_search_results_all_win_EV[grid_search_idx,i,j] = lambdas[0] / lambdas[1] 
    
-    return grid_search_results_all_win
+    return grid_search_results_all_win_EV
 
+
+@jit(nopython=True)
+def _phi_dt_grid_search_EV_and_XC(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
+                                    grid_search_results_all_win_EV, grid_search_results_all_win_XC):
+    """Function to do numba accelerated grid search of phis and dts.
+    Calculates splitting via eigenvalue (EV) and cross-correlation (XC) methods.
+    Note: Currently takes absolute values of rotated, time-shifted waveforms to 
+    cross-correlate."""
+
+    # Loop over start and end windows:
+    for a in range(n_win):
+        start_win_idx = win_start_idxs[a]
+        for b in range(n_win):
+            end_win_idx = win_end_idxs[b]
+            grid_search_idx = int(n_win*a + b)
+
+            # Loop over angles:
+            for j in range(n_angle_steps):
+                angle_shift_rad_curr = ((j * rotate_step_deg) - 90.) * np.pi / 180. # (Note: -90 as should loop between -90 and 90 (see phi_labels))
+
+                # Rotate QT waveforms by angle:
+                # (Note: Explicit rotation specification as wrapped in numba):
+                # Convert angle from counter-clockwise from x to clockwise:
+                theta_rot = -angle_shift_rad_curr
+                # Perform the rotation explicitely (avoiding creating additional arrays):
+                # (Q = y, T = x)
+                rot_T_curr = (data_arr_T[start_win_idx:end_win_idx] * np.cos(theta_rot)) - (data_arr_Q[start_win_idx:end_win_idx] * np.sin(theta_rot))
+                rot_Q_curr = (data_arr_T[start_win_idx:end_win_idx] * np.sin(theta_rot)) + (data_arr_Q[start_win_idx:end_win_idx] * np.cos(theta_rot))
+
+                # Loop over time shifts:
+                for i in range(n_t_steps):
+                    t_samp_shift_curr = int( i ) # (note: the minus sign as lag so need to shift back, if assume slow direction aligned with T)
+                    # Time-shift data (note: + dt for fast dir (rot Q), and -dt for slow dir (rot T)):
+                    rolled_rot_Q_curr = np.roll(rot_Q_curr, +int(t_samp_shift_curr/2.))
+                    rolled_rot_T_curr = np.roll(rot_T_curr, -int(t_samp_shift_curr/2.))
+
+                    # ================== Calculate splitting parameters via. EV method ==================
+                    # Calculate eigenvalues:
+                    xy_arr = np.vstack((rolled_rot_T_curr, rolled_rot_Q_curr))
+                    lambdas_unsort = np.linalg.eigvalsh(np.cov(xy_arr))
+                    lambdas = np.sort(lambdas_unsort)
+
+                    # And save eigenvalue results to datastores:
+                    # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable):
+                    grid_search_results_all_win_EV[grid_search_idx,i,j] = lambdas[0] / lambdas[1] 
+
+                    # ================== Calculate splitting parameters via. XC method ==================
+                    # Calculate XC coeffecient and save to array:
+                    grid_search_results_all_win_XC[grid_search_idx,i,j] = np.sum( np.abs(rolled_rot_Q_curr * rolled_rot_T_curr) / (np.std(rolled_rot_Q_curr) * 
+                                                                np.std(rolled_rot_T_curr))) / len(rolled_rot_T_curr)
+
+    return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
 
 
 class create_splitting_object:
@@ -406,10 +463,15 @@ class create_splitting_object:
         return win_start_idxs, win_end_idxs
     
 
-    def _calc_splitting_eig_val_method(self, data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs):
+    def _calc_splitting_eig_val_method(self, data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, sws_method="EV"):
         """
         Function to calculate splitting via eigenvalue method.
+        sws_method can be EV (eigenvalue) or EV_and_XC (eigenvalue and cross-correlation). EV_and_XC is for automation as in Wustefeld et al. (2010).
         """
+        # Perform initial checks:
+        if ( sws_method != "EV" ) and ( sws_method != "EV_and_XC" ):
+            print("Error: sws_method = ", sws_method, "not recognised. Exiting.")
+            sys.exit()
         # Setup paramters:
         n_t_steps = int(self.max_t_shift_s * self.fs)
         n_angle_steps = int(180. / self.rotate_step_deg) + 1
@@ -418,19 +480,30 @@ class create_splitting_object:
         rotate_step_deg = self.rotate_step_deg
 
         # Setup datastores:
-        grid_search_results_all_win = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
+        grid_search_results_all_win_EV = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
+        if sws_method == "EV_and_XC":
+            grid_search_results_all_win_XC = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
         lags_labels = np.arange(0., n_t_steps, 1) / fs 
         phis_labels = np.arange(-90, 90 + rotate_step_deg, rotate_step_deg)
 
         # Perform grid search:
         # (note that numba accelerated, hence why function outside class)
-        grid_search_results_all_win = _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, 
-                                                        n_win, fs, rotate_step_deg, grid_search_results_all_win)
-                        
-        return grid_search_results_all_win, lags_labels, phis_labels
+        if sws_method == "EV":
+            grid_search_results_all_win_EV = _phi_dt_grid_search_EV(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, 
+                                                        n_win, fs, rotate_step_deg, grid_search_results_all_win_EV)
+        elif sws_method == "EV_and_XC":
+            grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search_EV_and_XC(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, 
+                                                                                                            n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
+                                                                                                            grid_search_results_all_win_EV, grid_search_results_all_win_XC)
+        
+        # And return results:
+        if sws_method == "EV":
+            return grid_search_results_all_win_EV, lags_labels, phis_labels
+        elif sws_method == "EV_and_XC":
+            return grid_search_results_all_win_EV, grid_search_results_all_win_XC, lags_labels, phis_labels
 
 
-    def _get_phi_and_lag_errors(self, phi_dt_single_win, lags_labels, phis_labels, tr_for_dof, interp_fac=1):
+    def _get_phi_and_lag_errors_single_win(self, phi_dt_single_win, lags_labels, phis_labels, tr_for_dof, interp_fac=1):
         """
         Finds the error associated with phi and lag for a given grid search window result.
         Returns errors in phi and lag.
@@ -456,14 +529,6 @@ class create_splitting_object:
         conf_bound = ftest(error_surf, dof, alpha=0.05, k=2)
         conf_mask = error_surf <= conf_bound
 
-        # if self.plot_once:
-        #     print(lags_labels)
-        #     plt.figure()
-        #     Y, X = np.meshgrid(phis_labels, lags_labels)
-        #     plt.pcolormesh(X, Y, error_surf)
-        #     plt.show()
-        #     self.plot_once = False
-
         # Find lag dt error:
         # (= 1/4 width of confidence box (see Silver1991))
         lag_mask = conf_mask.any(axis=0)
@@ -484,7 +549,30 @@ class create_splitting_object:
 
         return phi_err, lag_err 
 
-    
+    def _get_phi_and_lag_errors(self, grid_search_results_all_win, tr_for_dof, interp_fac=1):
+        """Finds the error associated with phi and lag for all search window results.
+        Returns errors in phi and lag.
+        Calculates errors based on the Silver and Chan (1991) method using the 95% confidence 
+        interval, found using an f-test."""
+        lags = np.zeros(grid_search_results_all_win.shape[0])
+        phis = np.zeros(grid_search_results_all_win.shape[0])
+        lag_errs = np.zeros(grid_search_results_all_win.shape[0])
+        phi_errs = np.zeros(grid_search_results_all_win.shape[0])
+        # Loop over windows:
+        for i in range(grid_search_results_all_win.shape[0]):
+            grid_search_result_curr_win = grid_search_results_all_win[i,:,:]
+            # Get lag and phi:
+            min_idxs = np.where(grid_search_result_curr_win == np.min(grid_search_result_curr_win)) 
+            lags[i] = self.lags_labels[min_idxs[0][0]] 
+            phis[i] = self.phis_labels[min_idxs[1][0]]
+            # Get associated error (from f-test with 95% confidence interval):
+            # (Note: Uses transverse trace for dof estimation (see Silver and Chan 1991))
+            phi_errs[i], lag_errs[i] = self._get_phi_and_lag_errors_single_win(grid_search_result_curr_win, self.lags_labels, self.phis_labels, tr_for_dof,
+                                                                                 interp_fac=interp_fac)
+
+        return phis, lags, phi_errs, lag_errs
+
+
     def _sws_win_clustering(self, lags, phis, lag_errs, phi_errs, method="dbscan"):
         """Function to perform sws clustering of phis and lags. This clustering is based on the method of 
         Teanby2004, except that this function uses new coordinate system to deal with the cyclic nature  
@@ -492,6 +580,10 @@ class create_splitting_object:
         optimal clustering within this new space.
         Note: Performs analysis on normallised lag data.
         """
+        # Do initial check on lags to make sure not exactly zero (as coord. transform doesn't work):
+        if np.max(lags) == 0.:
+            lags = np.ones(len(lags)) * self.fs
+
         # Weight samples by their error variances:
         # samples_weights = 1. - ((lag_errs/lags)**2 + (phi_errs/phis)**2) # (= 1 - (var_lag_norm + var_phi_norm))
         
@@ -538,6 +630,35 @@ class create_splitting_object:
 
         return opt_phi, opt_lag, opt_phi_err, opt_lag_err
 
+
+    def _calc_Q_w(self, opt_phi_EV, opt_lag_EV, grid_search_results_all_win_XC, tr_for_dof, method="dbscan"):
+        """Function to calculate Q_w from Wustefeld et al. (2010), for automated analysis."""
+        # 1. Calculate optimal lags for XC method (as already passed values from EV method):
+        # (Note: Uses same error and window analysis as XC method)
+        # Convert XC to all negative so that universal with mimimum method used in EV analysis:
+        grid_search_results_all_win_XC = 1. / grid_search_results_all_win_XC
+        # And calculate optimal lags for XC method:
+        phis_tmp, lags_tmp, phi_errs_tmp, lag_errs_tmp = self._get_phi_and_lag_errors(grid_search_results_all_win_XC, tr_for_dof)
+        opt_phi_XC, opt_lag_XC, opt_phi_err_XC, opt_lag_err_XC = self._sws_win_clustering(lags_tmp, phis_tmp, lag_errs_tmp, phi_errs_tmp, method=method)
+
+        # 2. Calculate ratios between EV and XC methods:
+        dt_diff = opt_lag_XC / opt_lag_EV
+        phi_diff = (opt_phi_EV - opt_phi_XC) / 45.
+        d_null = np.sqrt( ( (dt_diff**2) + (( phi_diff - 1 )**2) ) / 2.)
+        d_good = np.sqrt( ( ( (dt_diff - 1)**2 ) + (phi_diff**2) ) / 2.)
+        if d_null > 1:
+            d_null = 1
+        if d_good > 1:
+            d_good = 1
+
+        # 3. Calculate Q_w (Eq. 4, Wustefeld2010):
+        if d_null < d_good:
+            Q_w = -1 * (1 - d_null)
+        else:
+            Q_w = 1 - d_good
+
+        return Q_w 
+
     
     def _rot_phi_from_sws_coords_to_deg_from_N(self, phi_pre_rot_deg, back_azi):
         """Function to rotate phi from LQT splitting to degrees from N."""
@@ -547,7 +668,7 @@ class create_splitting_object:
         return phi_rot_deg 
 
 
-    def perform_sws_analysis(self, coord_system="ZNE"):
+    def perform_sws_analysis(self, coord_system="ZNE", sws_method="EV"):
         """Function to perform splitting analysis. Works in LQT coordinate system 
         as then performs shear-wave-splitting in 3D.
         
@@ -558,12 +679,24 @@ class create_splitting_object:
             splitting angles back into coordinates relative to ZNE whatever system it 
             performs the splitting within. Default = ZNE. 
 
+        sws_method : str
+            Method with which to calculate sws parameters. Options are: EV, EV_and_XC.
+            EV - Eigenvalue method (as in Silver and Chan (1991), Teanby (2004), Walsh et 
+            al. (2013)). EV_and_XC - Same as EV, except also performs cross-correlation 
+            for automation approach, as in Wustefeld et al. (2010). Default is EV.
+
         """
         # Save any parameters to class object:
         self.coord_system = coord_system
+        self.sws_method = sws_method
+        
+        # Perform initial parameter checks:
+        if ( sws_method != "EV" ) and ( sws_method != "EV_and_XC" ):
+            print("Error: sws_method = ", sws_method, "not recognised. Exiting.")
+            sys.exit()
 
         # Create datastores:
-        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_err': [], 'dt': [], 'dt_err': []})
+        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'Q_w': []})
         self.phi_dt_grid_average = {}
         self.event_station_win_idxs = {}
 
@@ -623,40 +756,39 @@ class create_splitting_object:
             # 4. Calculate splitting angle and delay times for windows:
             # (Silver and Chan (1991) and Teanby2004 eigenvalue method)
             # 4.a. Get data for all windows:
-            grid_search_results_all_win, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_P.data, tr_A.data, win_start_idxs, win_end_idxs)
-            self.grid_search_results_all_win = grid_search_results_all_win
+            if self.sws_method == "EV":
+                grid_search_results_all_win_EV, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_P.data, tr_A.data, win_start_idxs, win_end_idxs, 
+                                                                                                                    sws_method=self.sws_method)
+            elif self.sws_method == "EV_and_XC":
+                grid_search_results_all_win_EV, grid_search_results_all_win_XC, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_P.data, tr_A.data, win_start_idxs, win_end_idxs, 
+                                                                                                                    sws_method=self.sws_method)
+            # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable):
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
             # 4.b. Get lag and phi values and errors associated with windows:
-            lags = np.zeros(grid_search_results_all_win.shape[0])
-            phis = np.zeros(grid_search_results_all_win.shape[0])
-            lag_errs = np.zeros(grid_search_results_all_win.shape[0])
-            phi_errs = np.zeros(grid_search_results_all_win.shape[0])
-            for i in range(grid_search_results_all_win.shape[0]):
-                # Only use positive grid search window!:
-                first_pos_idx = np.where(self.lags_labels >= 0.)[0][0]
-                grid_search_result_curr_win = grid_search_results_all_win[i,first_pos_idx:,:]
-                # Get lag and phi:
-                min_idxs = np.where(grid_search_result_curr_win == np.min(grid_search_result_curr_win)) 
-                lags[i] = self.lags_labels[min_idxs[0][0] + first_pos_idx] # + term to deal with positive shift
-                phis[i] = self.phis_labels[min_idxs[1][0]]
-                # Get associated error (from f-test with 95% confidence interval):
-                # (Note: Uses transverse trace for dof estimation (see Silver and Chan 1991))
-                phi_errs[i], lag_errs[i] = self._get_phi_and_lag_errors(grid_search_result_curr_win, self.lags_labels[first_pos_idx:], phis_labels, tr_A)
+            phis, lags, phi_errs, lag_errs = self._get_phi_and_lag_errors(grid_search_results_all_win_EV, tr_A)
 
             # 6. Perform clustering for all windows to find best result:
             # (Teanby2004 method, but in new coordinate space with dbscan clustering)
             opt_phi, opt_lag, opt_phi_err, opt_lag_err = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
 
-            # 7. Rotate output phi back into angle relative to N:
+            # 7. Calculate Wustefeld et al. (2010) quality factor:
+            # (For automated approach)
+            # (Only if sws_method = "EV_and_XC")
+            if self.sws_method == "EV_and_XC":
+                Q_w = self._calc_Q_w(opt_phi, opt_lag, grid_search_results_all_win_XC, tr_A, method="dbscan")
+            else:
+                Q_w = np.nan
+
+            # ?. Rotate output phi back into angle relative to N:
             # opt_phi_from_N = self._rot_phi_from_sws_coords_to_deg_from_N(opt_phi, back_azi)
 
             # 8. And append data to overall datastore:
-            df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err]})
+            df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'Q_w' : [Q_w]})
             self.sws_result_df = self.sws_result_df.append(df_tmp)
             opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
             opt_lag_idx = np.where(self.lags_labels == opt_lag)[0][0]
-            self.phi_dt_grid_average[station] = np.average(grid_search_results_all_win, axis=0)
+            self.phi_dt_grid_average[station] = np.average(grid_search_results_all_win_EV, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
             self.event_station_win_idxs[station] = {}
             self.event_station_win_idxs[station]['win_start_idxs'] = win_start_idxs
             self.event_station_win_idxs[station]['win_end_idxs'] = win_end_idxs
@@ -707,6 +839,7 @@ class create_splitting_object:
             dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
             phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
             dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
+            Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
             st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station)
 
             # Plot data:
@@ -772,9 +905,10 @@ class create_splitting_object:
             text_ax.text(0,-2,"$\phi$ : "+str(phi_curr)+"$^o$"+" +/-"+str(phi_err_curr)+"$^o$", fontsize='small')
             text_ax.text(0,-3,"$\delta$ $t$ : "+str(dt_curr)+" +/-"+str(round(dt_err_curr, 5))+" $s$", fontsize='small')
             text_ax.text(0,-4,"Coord. sys. : "+self.coord_system, fontsize='small')
+            if Q_w_curr <= 1.1:
+                text_ax.text(0,-5,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
             text_ax.set_xlim(-2,10)
-            text_ax.set_ylim(-8,2)
-
+            text_ax.set_ylim(-10,2)
 
             # And do some plot labelling:
             wfs_ax_E.set_xlabel("Time (s)")
