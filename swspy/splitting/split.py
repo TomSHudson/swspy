@@ -935,7 +935,7 @@ class create_splitting_object:
     def save_result(self, outdir=os.getcwd()):
         """Function to save output. Output is a csv file with all the splitting data for the event, 
         for all stations. Saves result as <event_uid>, to <outdir>."""
-        fname_out = os.path.join(outdir, ''.join((self.event_uid, "_sws_result.csv")))
+        fname_out = os.path.join(outdir, ''.join((self.event_uid, '_', station, "_sws_result.csv")))
         self.sws_result_df.to_csv(fname_out, index=False)
         print("Saved sws result to:", fname_out)
 

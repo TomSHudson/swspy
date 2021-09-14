@@ -1,0 +1,5 @@
+source/conf.py: This is the file where all Sphinx configuration settings (including the settings we specified during the sphinx-quickstart setup) are specified. When any make <builder> or sphinx-build <builder> command is called, Sphinx runs this file to extract the desired configuration.
+
+source/index.rst: This is the file which tells Sphinx how to render our index.html page. In general, each source/*.rst file is converted to a corresponding build/html/*.html page when make html is called.
+
+(For more information, see: https://sphinx-rtd-tutorial.readthedocs.io/en/latest/sphinx-quickstart.html#quickstart)
