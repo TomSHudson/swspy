@@ -347,19 +347,33 @@ class create_splitting_object:
         Overall window start time in seconds before S pick.
 
 
-    overall_win_start_post_fast_S_pick : float (default = 0.5 s)
+    overall_win_start_post_fast_S_pick : float (default = 0.2 s)
         Overall window start time in seconds after S pick.
     
-    win_S_pick_tolerance : 
+    win_S_pick_tolerance : float (default = 0.1 s)
+        Time before and after S pick to not allow windows to start within (in seconds). 
+        For example, start windows start at:
+        S arrival time - (<overall_win_start_pre_fast_S_pick> + <win_S_pick_tolerance>)
+        And end times windows start at:
+        S arrival time + <win_S_pick_tolerance> + <overall_win_start_post_fast_S_pick>
 
-    rotate_step_deg : 
+    rotate_step_deg : float (default = 2.0 degrees)
+        Rotation step size of phi in degrees for the grid search in phi-delay-time space.
 
-    n_win : 
-
+    max_t_shift_s : float (default = 0.1 s)
+        The maximum time shift the data by in seconds.
+    
+    n_win : int (default = 10)
+        The number of window start and end times to pick. Currently implemented as 
+        constant window step sizes within the specified range, as defined by 
+        <overall_win_start_pre_fast_S_pick> amd <win_S_pick_tolerance>. Therefore, 
+        will calculate splitting for n_win^2 windows in total.
 
     Methods
     -------
     perform_sws_analysis : Function to perform shear-wave splitting analysis.
+    plot : Function to plot the shear-wave splitting results.
+    save_result : Function to save sws results to file.
 
     """
 
@@ -935,7 +949,7 @@ class create_splitting_object:
     def save_result(self, outdir=os.getcwd()):
         """Function to save output. Output is a csv file with all the splitting data for the event, 
         for all stations. Saves result as <event_uid>, to <outdir>."""
-        fname_out = os.path.join(outdir, ''.join((self.event_uid, '_', station, "_sws_result.csv")))
+        fname_out = os.path.join(outdir, ''.join((self.event_uid, "_sws_result.csv")))
         self.sws_result_df.to_csv(fname_out, index=False)
         print("Saved sws result to:", fname_out)
 
