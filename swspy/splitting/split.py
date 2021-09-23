@@ -205,8 +205,7 @@ def ftest(data, dof, alpha=0.05, k=2, min_max='min'):
     dof : int
         Number of degrees of freedom.
     alpha : float
-        Confidence level (e.g. if alpha = 0.05, then 
-        95% confidence level found).
+        Confidence level (e.g. if alpha = 0.05, then 95pc confidence level found).
     k : int
         Number of parameters (e.g. phi, dt).
     min_max : specific str

@@ -15,5 +15,11 @@ TBC...
 Will be published on readthedocs.org in due course, once the package becomes open source.
 
 In the meantime, to view the documentation, do:
+
 open docs/build/html/index.html 
+
 (or similar)
+
+## Examples:
+
+Various example notebooks can be found in the examples directory.

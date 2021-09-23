@@ -12,6 +12,7 @@ swspy Documentation
    
    installation
    tutorials
+   modules
 
 
 

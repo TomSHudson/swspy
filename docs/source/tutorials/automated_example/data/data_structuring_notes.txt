@@ -1,0 +1,43 @@
+
+# BASH code:
+
+for fname in data/* ; do short_fname=$(echo ${fname} | sed 's/\// /g' | awk '{print $2}') ; event_uid=$(echo ${short_fname} | sed 's/\./ /g' | awk '{print $1}') ; echo ${event_uid} ; mkdir ${event_uid} ; cp data/${event_uid}* ${event_uid}/ ; done
+
+
+# PYTHON code:
+
+# List event UIDs and station names:
+datadir = os.path.join("data","splittingsample","data")
+fnames_all_tmp = glob.glob(os.path.join(datadir, "*.BH*"))
+event_uids = []
+for fname_tmp in fnames_all_tmp:
+    fname_no_path = os.path.split(fname_tmp)[-1]
+    event_uids.append(fname_no_path.split(".")[0])
+    
+# Read in event window and back azimuth data:
+aux_data_fname = os.path.join("data","splittingsample", "Sample_SKS_SKKS_data.sdb")
+aux_data_df = pd.read_csv(aux_data_fname, delimiter=" ")
+
+
+
+# Loop over events:
+for event_uid in event_uids:
+    print("Processing for event:", event_uid)
+    # Load data:
+    mseed_path = os.path.join(datadir, event_uid)
+    station = event_uid.split("_")[0]
+    event_starttime = obspy.UTCDateTime(year=int(event_uid.split("_")[1][0:4]), julday=int(event_uid.split("_")[1][4:7]), 
+                                        hour=int(event_uid.split("_")[2][0:2]), minute=int(event_uid.split("_")[2][2:4]),
+                                       second=int(event_uid.split("_")[2][4:6]))
+    aux_data_df_row_idx = aux_data_df.index[aux_data_df["STAT"]==station].tolist()[0]
+    win_starttime = event_starttime + aux_data_df["WBEG"][aux_data_df_row_idx] - 10
+    win_endtime = event_starttime + aux_data_df["WEND"][aux_data_df_row_idx] + 30
+    
+#     load_wfs_obj = swspy.io.load_waveforms(mseed_path, archive_vs_file="file", downsample_factor=1)
+#     st = load_wfs_obj.read_waveform_data()
+    for comp in ["Z", "N", "E"]:
+        fname_tmp = glob.glob(mseed_path+"*"+comp)[0]
+        st = obspy.read(fname_tmp)
+        st.trim(starttime=win_starttime, endtime=win_endtime)
+        st.write(fname_tmp, format="SAC")
+
