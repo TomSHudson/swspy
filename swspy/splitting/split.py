@@ -859,6 +859,8 @@ class create_splitting_object:
             # Plot data:
             # Setup figure:
             fig = plt.figure(constrained_layout=True, figsize=(8,6))
+            if suppress_direct_plotting:
+                plt.ion()
             gs = fig.add_gridspec(2, 3)
             wfs_ax = fig.add_subplot(gs[0, 0:2])
             wfs_ax.get_xaxis().set_visible(False)
@@ -937,13 +939,14 @@ class create_splitting_object:
             phi_dt_ax.set_ylabel('$\phi$ ($^o$)')
 
             # plt.colorbar()
-            plt.tight_layout()
+            # plt.tight_layout()
             if outdir:
                 plt.savefig(os.path.join(outdir, ''.join((self.event_uid, ".png"))), dpi=300)
-            if not suppress_direct_plotting:
-                plt.show()
+            if suppress_direct_plotting:
+                plt.ioff()
+                plt.close(fig)
             else:
-                plt.close()
+                plt.show()
     
 
     def save_result(self, outdir=os.getcwd()):

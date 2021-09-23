@@ -71,6 +71,11 @@ class load_waveforms:
     response_file_path : str (default = None)
         Path to response file used to remove instrument response.
 
+    downsample_factor : int (default = 1)
+        Factor by which to downsample the data, to speed up processing.
+        If <downsample_factor> = 1, obviously doens't apply downsampling.
+
+
     Methods
     -------
     read_waveform_data(stations=[], channels="*")

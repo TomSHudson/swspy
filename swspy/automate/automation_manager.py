@@ -66,6 +66,10 @@ class proc_many_events:
         <overall_win_start_pre_fast_S_pick> amd <win_S_pick_tolerance>. Therefore, 
         will calculate splitting for n_win^2 windows in total.
 
+    downsample_factor : int (default = 1)
+        Factor by which to downsample the data, to speed up processing.
+        If <downsample_factor> = 1, obviously doens't apply downsampling.
+
     coord_system : str
         Coordinate system to perform analysis in. Options are: LQT, ZNE. Will convert 
         splitting angles back into coordinates relative to ZNE whatever system it 
@@ -89,7 +93,7 @@ class proc_many_events:
     Methods
     -------
     run_events_from_nlloc
-
+    run_events_sws_fmt
 
     """
 
@@ -112,6 +116,7 @@ class proc_many_events:
         self.rotate_step_deg = 2.0
         self.max_t_shift_s = 0.1
         self.n_win = 10
+        self.downsample_factor = 1
         self.coord_system = "ZNE"
         self.sws_method = "EV_and_XC"
         # Define other processing auxilary params:
@@ -173,7 +178,7 @@ class proc_many_events:
             nlloc_hyp_data = read_nonlinloc.read_hyp_file(nlloc_fname)
             starttime = nlloc_hyp_data.origin_time - event_prepad
             endtime = nlloc_hyp_data.origin_time + event_postpad
-            load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime)
+            load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor)
             load_wfs_obj.filter = self.filter
             load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
             st = load_wfs_obj.read_waveform_data()
@@ -198,6 +203,9 @@ class proc_many_events:
             # Tidy:
             del splitting_event, st, load_wfs_obj, nlloc_hyp_data
             gc.collect()
+        
+        print("Finished processing shear-wave splitting for data in:", nlloc_dir)
+        print("Data saved to:", outdir)
 
     
     def run_events_sws_fmt(self, datadir, outdir, S_pick_time_after_start_s=10.0):
@@ -213,24 +221,37 @@ class proc_many_events:
 
         Sac data for each event must be trimmed with <S_pick_time_after_start_s> 
         seconds padding before the S pick and sufficient padding after. Additionally, 
-        sac data must have 
+        sac data must have back azimuth information (and inclination info. if not 
+        using ZNE coordinate system).
         -------------------------------------------------------------------------
 
         Parameters
         ----------
 
-        TBC!!!
+        datadir : str
+            The overall directory path containing all events with event unique IDs 
+            as each directory, with each directory containing SAC files for each 
+            component of each station. I.e. data follows format:
+            <datadir>/event_uid/*.?H*
 
-        event_prepad : float
+        outdir : str
+            Path to output directory to save data to. Saves results to:
+            csv event summary file: <outdir>/<data>/event_uid.csv
+            And if <output_plots> is specified, then will output plots to:
+            png event station file: <outdir>/<data>/<event_uid>_<station>.png
 
-        event_postpad : float
+        S_pick_time_after_start_s : float
+            Time, in seconds, of S pick after start of SAC trace. Default is 10.0 s.
         
         """
         # Get event uids to loop over:
-        event_uids = glob.glob(os.path.join(datadir, "*"))
-        event_uids.sort()
-        for i in range(len(event_uids)):
-            event_uids[i] = os.path.basename(event_uids[i])
+        event_uids_tmp = glob.glob(os.path.join(datadir, "*"))
+        event_uids_tmp.sort()
+        event_uids = []
+        for i in range(len(event_uids_tmp)):
+            if os.path.isdir(event_uids_tmp[i]):
+                event_uids.append(os.path.basename(event_uids_tmp[i]))
+        del event_uids_tmp
 
         # Create output directories if not already created:
         data_outdir = os.path.join(outdir, "data")
@@ -240,30 +261,27 @@ class proc_many_events:
             Path(plot_outdir).mkdir(parents=True, exist_ok=True)
 
         # Loop over events:
-        count = 0
+        count = 1
         for event_uid in event_uids:
-            print(''.join(("Processing for event UID: ", event_uid, " (", count, "/", len(nlloc_fnames), ")")))
+            print(''.join(("Processing for event UID: ", event_uid, " (", str(count), "/", str(len(event_uids)), ")")))
             count+=1
             # 1. Get waveform data:
-            # starttime = nlloc_hyp_data.origin_time - event_prepad
-            # endtime = nlloc_hyp_data.origin_time + event_postpad
             event_sac_fnames_path = os.path.join(datadir, event_uid, "*.?H*")
-            load_wfs_obj = swspy.io.load_waveforms(event_sac_fnames_path, archive_vs_file="file")
+            load_wfs_obj = swspy.io.load_waveforms(event_sac_fnames_path, archive_vs_file="file", downsample_factor=self.downsample_factor)
             load_wfs_obj.filter = self.filter
             load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
             st = load_wfs_obj.read_waveform_data()
 
             # 2. Calculate splitting for event:
             # 2.i. Setup splitting event object:
-            splitting_event = swspy.splitting.create_splitting_object(st, nonlinloc_event_path=nonlinloc_event_path)
-            # Assign station info:
+            # Get station info:
             stations_in = []
             back_azis_all_stations = []
             receiver_inc_angles_all_stations = []
             S_phase_arrival_times = []
             for tr in st:
-                if tr.stats.station not in splitting_event.stations_in:
-                    splitting_event.stations_in.append(tr.stats.station)
+                if tr.stats.station not in stations_in:
+                    stations_in.append(tr.stats.station)
                     back_azis_all_stations.append(tr.stats.sac['baz'])
                     if self.coord_system == "ZNE":
                         receiver_inc_angles_all_stations.append(0.)
@@ -271,6 +289,10 @@ class proc_many_events:
                         print("Error: Non-ZNE coordinate system currently not supported for run_events_sws_fmt() automation method. Exiting.")
                         sys.exit()
                     S_phase_arrival_times.append(tr.stats.starttime + S_pick_time_after_start_s)
+            # Create the splitting event object:
+            splitting_event = swspy.splitting.create_splitting_object(st, stations_in=stations_in, S_phase_arrival_times=S_phase_arrival_times, 
+                                                                        back_azis_all_stations=back_azis_all_stations, 
+                                                                        receiver_inc_angles_all_stations=receiver_inc_angles_all_stations)
             # Assign splitting parameters:
             splitting_event.overall_win_start_pre_fast_S_pick = self.overall_win_start_pre_fast_S_pick
             splitting_event.overall_win_start_post_fast_S_pick = self.overall_win_start_post_fast_S_pick
@@ -287,8 +309,11 @@ class proc_many_events:
                 splitting_event.plot(outdir=plot_outdir, suppress_direct_plotting=self.suppress_direct_plotting)
 
             # Tidy:
-            del splitting_event, st, load_wfs_obj, nlloc_hyp_data
+            del splitting_event, st, load_wfs_obj
             gc.collect()
+
+        print("Finished processing shear-wave splitting for data in:", datadir)
+        print("Data saved to:", outdir)
 
 
 
