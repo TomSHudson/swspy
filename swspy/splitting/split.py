@@ -24,7 +24,6 @@ import obspy
 from obspy import UTCDateTime as UTCDateTime
 import sys, os
 import glob
-import matplotlib.pyplot as plt
 import subprocess
 import gc
 from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
