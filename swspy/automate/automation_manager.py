@@ -26,7 +26,7 @@ from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install
 
 
 def run_events_from_nlloc(mseed_archive_dir, nlloc_dir, outdir, output_plots=False, event_prepad=1.0, event_postpad=30.0, freqmin=1.0, freqmax=100.0):
-"""
+    """
     Function to run many events through shear-wave splitting analysis using 
     nonlinloc and mseed data (in archive format: <mseed_archive_dir>/<year>/
     <julday>/...).
