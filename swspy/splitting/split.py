@@ -545,8 +545,13 @@ class create_splitting_object:
         # (= 1/4 width of confidence box (see Silver1991))
         lag_mask = conf_mask.any(axis=0)
         true_idxs = np.where(lag_mask)[0]
-        lag_step_s = lags_labels[1] - lags_labels[0]
-        lag_err = (true_idxs[-1] - true_idxs[0] + 1) * lag_step_s * 0.25
+        if len(true_idxs) == 0:
+            # Artifically set error to zero, as cannot calculte error:
+            lag_err = 0.0 
+        else:
+            # Else calculate error, if possible:
+            lag_step_s = lags_labels[1] - lags_labels[0]
+            lag_err = (true_idxs[-1] - true_idxs[0] + 1) * lag_step_s * 0.25
 
         # Find fast direction phi error:
         # (= 1/4 width of confidence box (see Silver1991))
