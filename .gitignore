@@ -132,3 +132,4 @@ dmypy.json
 examples/sks_example/outputs/plots/*.png
 **/plots/*.png
 examples/automated_example/data/data_structuring_notes.txt
+examples/pnr_example

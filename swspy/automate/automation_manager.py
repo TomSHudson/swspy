@@ -270,7 +270,12 @@ class proc_many_events:
             load_wfs_obj = swspy.io.load_waveforms(event_sac_fnames_path, archive_vs_file="file", downsample_factor=self.downsample_factor)
             load_wfs_obj.filter = self.filter
             load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
-            st = load_wfs_obj.read_waveform_data()
+            try:
+                st = load_wfs_obj.read_waveform_data()
+            except:
+                print("Error: Cannot read mseed files. Check that files mist be of the format:", os.path.join(datadir, event_uid, "*.?H*"))
+                print("Exiting.")
+                sys.exit()
 
             # 2. Calculate splitting for event:
             # 2.i. Setup splitting event object:
