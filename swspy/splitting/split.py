@@ -558,12 +558,17 @@ class create_splitting_object:
         # (Note: This must deal with angle symetry > 90 or < -90)
         phi_mask = conf_mask.any(axis=1)
         phi_mask_with_pos_neg_overlap = np.hstack((phi_mask,phi_mask, phi_mask))
-        print(np.where(phi_mask_with_pos_neg_overlap))
-        max_false_len = np.diff(np.where(phi_mask_with_pos_neg_overlap)).max() - 1
-        # shortest line that contains ALL true values is then:
-        max_true_len = len(phi_mask) - max_false_len
-        phi_step_deg = phis_labels[1] - phis_labels[0]
-        phi_err = max_true_len * phi_step_deg * 0.25
+        if len(np.where(phi_mask_with_pos_neg_overlap)) > 0:
+            # Calculate phi error:
+            max_false_len = np.diff(np.where(phi_mask_with_pos_neg_overlap)).max() - 1
+            # shortest line that contains ALL true values is then:
+            max_true_len = len(phi_mask) - max_false_len
+            phi_step_deg = phis_labels[1] - phis_labels[0]
+            phi_err = max_true_len * phi_step_deg * 0.25
+        else:
+            # Set phi error equal to zero, as not possible to calculate:
+            phi_err = 0.
+
 
         return phi_err, lag_err 
 
