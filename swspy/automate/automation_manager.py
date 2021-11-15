@@ -172,7 +172,7 @@ class proc_many_events:
         # Loop over events, processing:
         count = 0
         for nlloc_fname in nlloc_fnames:
-            print(''.join(("Processing for event: ", count, "/", len(nlloc_fnames))))
+            print(''.join(("Processing for event: ", str(count), "/", str(len(nlloc_fnames)))))
             count+=1
             # 1. Get waveform data:
             nlloc_hyp_data = read_nonlinloc.read_hyp_file(nlloc_fname)
@@ -185,7 +185,7 @@ class proc_many_events:
 
             # 2. Calculate splitting for event:
             # 2.i. Setup splitting event object:
-            splitting_event = swspy.splitting.create_splitting_object(st, nonlinloc_event_path=nonlinloc_event_path)
+            splitting_event = swspy.splitting.create_splitting_object(st, nonlinloc_event_path=nlloc_fname)
             splitting_event.overall_win_start_pre_fast_S_pick = self.overall_win_start_pre_fast_S_pick
             splitting_event.overall_win_start_post_fast_S_pick = self.overall_win_start_post_fast_S_pick
             splitting_event.win_S_pick_tolerance = self.win_S_pick_tolerance
