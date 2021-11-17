@@ -492,6 +492,10 @@ class create_splitting_object:
         rotate_step_deg = self.rotate_step_deg
 
         # Setup datastores:
+        # if 'grid_search_results_all_win_EV' in globals():
+        #     del grid_search_results_all_win_EV
+        # if 'grid_search_results_all_win_XC' in globals():
+        #     del grid_search_results_all_win_XC
         grid_search_results_all_win_EV = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
         if sws_method == "EV_and_XC":
             grid_search_results_all_win_XC = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
