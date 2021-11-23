@@ -116,6 +116,22 @@ class load_waveforms:
                 #     st[i].stats.sampling_rate = st[0].stats.sampling_rate 
         return st
 
+    
+    def _force_stream_length_consistency(self, st):
+        """Function to force traces in the streams to be the same length. Note: will force stream to take length 
+        of shortest trace."""
+        # Get minimum trace length:
+        tr_min_len = len(st[0].data)
+        for i in range(len(st)):
+            if tr_min_len > len(st[i].data):
+                tr_min_len = len(st[i].data)
+        # And force all traces to be same length as shortest trace:
+        for i in range(len(st)):
+            if len(st[i].data) > tr_min_len:
+                st[i].data = st[i].data[0:tr_min_len]
+        return st 
+        
+
     def read_waveform_data(self, stations=None, channels="*"):
         """Function to read waveform data. Filters if specified.
 
@@ -175,6 +191,9 @@ class load_waveforms:
 
         # Force allignment:
         st = self._force_stream_sample_alignment(st)
+
+        # And force all traces in stream to be same length:
+        st = self._force_stream_length_consistency(st)
 
         # And downsample data, if specified:
         if self.downsample_factor > 1:
