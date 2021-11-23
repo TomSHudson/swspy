@@ -624,38 +624,43 @@ class create_splitting_object:
         clustering = db.fit(samples_new_coords)#, sample_weight=samples_weights)
         # Separate samples into clusters:
         n_clusters = len(set(clustering.labels_)) - (1 if -1 in clustering.labels_ else 0) # Note: -1 are noise coords
-        clusters_dict = {}
-        for i in range(n_clusters):
-            curr_cluster_idxs = np.where(clustering.labels_ == i)[0]
-            clusters_dict[str(i)] = {}
-            clusters_dict[str(i)]['lags'] = lags[curr_cluster_idxs]
-            clusters_dict[str(i)]['lag_errs'] = lag_errs[curr_cluster_idxs]
-            clusters_dict[str(i)]['phis'] = phis[curr_cluster_idxs]
-            clusters_dict[str(i)]['phi_errs'] = phi_errs[curr_cluster_idxs]
-        # And find smallest variance cluster and smallest variance observation within that cluster:
-        # (Note: Variances as in Teanby2004, Eq. 13, 14)
-        cluster_vars = np.zeros(n_clusters)
-        data_vars = np.zeros(n_clusters)
-        for i in range(n_clusters):
-            # Calculate cluster variances (Eq. 13, Teanby2004):
-            cluster_vars[i] = np.sum( ( clusters_dict[str(i)]['lags'] - np.mean(clusters_dict[str(i)]['lags']) )**2 + ( clusters_dict[str(i)]['phis'] - np.mean(clusters_dict[str(i)]['phis']) )**2 ) / len(clusters_dict[str(i)]['lags'])
-            # And calculate cluster variances (Eq. 14, Teanby2004):
-            data_vars[i] = ( 1 / np.sum( 1 / ( clusters_dict[str(i)]['lag_errs']**2 ) ) ) + ( 1 / np.sum( 1 / ( clusters_dict[str(i)]['phi_errs']**2 ) ) )
-        # And calculate representitive variance of each cluster (= max(cluster_vars, data_vars)):
-        cluster_var_0s = np.maximum(cluster_vars, data_vars)
-        # And find smallest overall variance cluster:
-        min_var_idx = np.argmin(cluster_var_0s)
-        smallest_var_cluster = clusters_dict[str(min_var_idx)]
-        # And calculate combined dt + phi variance for each point in cluster, to find best overall observation:
-        n_obs = len(smallest_var_cluster['lags'])
-        cluster_vars_tmp = smallest_var_cluster['lag_errs']**2 + smallest_var_cluster['phi_errs']**2
-        opt_obs_idx = np.argmin(cluster_vars_tmp)
-        opt_lag = smallest_var_cluster['lags'][opt_obs_idx]
-        opt_phi = smallest_var_cluster['phis'][opt_obs_idx]
-        opt_lag_err = smallest_var_cluster['lag_errs'][opt_obs_idx]
-        opt_phi_err = smallest_var_cluster['phi_errs'][opt_obs_idx]
+        if n_clusters > 0:
+            clusters_dict = {}
+            for i in range(n_clusters):
+                curr_cluster_idxs = np.where(clustering.labels_ == i)[0]
+                clusters_dict[str(i)] = {}
+                clusters_dict[str(i)]['lags'] = lags[curr_cluster_idxs]
+                clusters_dict[str(i)]['lag_errs'] = lag_errs[curr_cluster_idxs]
+                clusters_dict[str(i)]['phis'] = phis[curr_cluster_idxs]
+                clusters_dict[str(i)]['phi_errs'] = phi_errs[curr_cluster_idxs]
+            # And find smallest variance cluster and smallest variance observation within that cluster:
+            # (Note: Variances as in Teanby2004, Eq. 13, 14)
+            cluster_vars = np.zeros(n_clusters)
+            data_vars = np.zeros(n_clusters)
+            for i in range(n_clusters):
+                # Calculate cluster variances (Eq. 13, Teanby2004):
+                cluster_vars[i] = np.sum( ( clusters_dict[str(i)]['lags'] - np.mean(clusters_dict[str(i)]['lags']) )**2 + ( clusters_dict[str(i)]['phis'] - np.mean(clusters_dict[str(i)]['phis']) )**2 ) / len(clusters_dict[str(i)]['lags'])
+                # And calculate cluster variances (Eq. 14, Teanby2004):
+                data_vars[i] = ( 1 / np.sum( 1 / ( clusters_dict[str(i)]['lag_errs']**2 ) ) ) + ( 1 / np.sum( 1 / ( clusters_dict[str(i)]['phi_errs']**2 ) ) )
+            # And calculate representitive variance of each cluster (= max(cluster_vars, data_vars)):
+            cluster_var_0s = np.maximum(cluster_vars, data_vars)
+            # And find smallest overall variance cluster:
+            min_var_idx = np.argmin(cluster_var_0s)
+            smallest_var_cluster = clusters_dict[str(min_var_idx)]
+            # And calculate combined dt + phi variance for each point in cluster, to find best overall observation:
+            n_obs = len(smallest_var_cluster['lags'])
+            cluster_vars_tmp = smallest_var_cluster['lag_errs']**2 + smallest_var_cluster['phi_errs']**2
+            opt_obs_idx = np.argmin(cluster_vars_tmp)
+            opt_lag = smallest_var_cluster['lags'][opt_obs_idx]
+            opt_phi = smallest_var_cluster['phis'][opt_obs_idx]
+            opt_lag_err = smallest_var_cluster['lag_errs'][opt_obs_idx]
+            opt_phi_err = smallest_var_cluster['phi_errs'][opt_obs_idx]
 
-        return opt_phi, opt_lag, opt_phi_err, opt_lag_err
+            return opt_phi, opt_lag, opt_phi_err, opt_lag_err
+
+        else:
+            print("Warning: Failed to cluster for current receiver of current event. Skipping receiver.")
+            return None, None, None, None
 
 
     def _calc_Q_w(self, opt_phi_EV, opt_lag_EV, grid_search_results_all_win_XC, tr_for_dof, method="dbscan"):
@@ -798,6 +803,10 @@ class create_splitting_object:
             # 6. Perform clustering for all windows to find best result:
             # (Teanby2004 method, but in new coordinate space with dbscan clustering)
             opt_phi, opt_lag, opt_phi_err, opt_lag_err = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+            # And check that clustered:
+            if not opt_phi:
+                # If didn't cluster, skip station:
+                continue
 
             # 7. Calculate Wustefeld et al. (2010) quality factor:
             # (For automated approach)
@@ -862,11 +871,15 @@ class create_splitting_object:
                                 endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
 
             # And remove splitting:
-            phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi'])
-            dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
-            phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
-            dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
-            Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
+            try:
+                phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi'])
+                dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
+                phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
+                dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
+                Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
+            except TypeError:
+                # If cannot get parameters becuase splitting clustering failed, skip station:
+                continue
             st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station)
 
             # Plot data:
