@@ -55,7 +55,10 @@ def _rotate_LQT_to_BPA(st_LQT, back_azi):
     # Define rotation matrix (for counter-clockwise rotation):
     rot_matrix = np.array([[np.cos(back_azi_rad), -np.sin(back_azi_rad)], [np.sin(back_azi_rad), np.cos(back_azi_rad)]])
     # And perform the rotation (y = Q, P in this case, x = T, A in this case):
-    vec = np.vstack((st_LQT.select(channel="??T")[0].data, st_LQT.select(channel="??Q")[0].data))
+    try:
+        vec = np.vstack((st_LQT.select(channel="??T")[0].data, st_LQT.select(channel="??Q")[0].data))
+    except IndexError:
+        raise ValueError("Q and/or T component in <st_LQT> doesn't exist.")
     vec_rot = np.dot(rot_matrix, vec)
     st_BPA.select(channel="??T")[0].data = np.array(vec_rot[0,:])
     st_BPA.select(channel="??Q")[0].data = np.array(vec_rot[1,:])
@@ -776,7 +779,11 @@ class create_splitting_object:
             # And rotate into emerging ray coord system, LQT:
             st_LQT_curr = _rotate_ZNE_to_LQT(st_ZNE_curr, back_azi, event_inclin_angle_at_station)
             # And rotate into propagation coordinate system (as in Walsh et al. (2013)), BPA:
-            st_BPA_curr = _rotate_LQT_to_BPA(st_LQT_curr, back_azi)
+            try:
+                st_BPA_curr = _rotate_LQT_to_BPA(st_LQT_curr, back_azi)
+            except:
+                print("Warning: Q and/or T components not found. Skipping this event-receiver observation.")
+                continue
             del st_ZNE_curr, st_LQT_curr
             gc.collect()
 
