@@ -74,6 +74,12 @@ class load_waveforms:
         Factor by which to downsample the data, to speed up processing.
         If <downsample_factor> = 1, obviously doens't apply downsampling.
 
+    upsample_factor : int (default = 1)
+        Factor by which to upsample the data, to smooth waveforms for enhanced 
+        timeshift processing. Currently uses weighted average slopes 
+        interpolation method.
+        If <upsample_factor> = 1, doens't apply upsampling.
+
 
     Methods
     -------
@@ -82,7 +88,7 @@ class load_waveforms:
 
     """
 
-    def __init__(self, path, starttime=None, endtime=None, archive_vs_file="archive", downsample_factor=1):
+    def __init__(self, path, starttime=None, endtime=None, archive_vs_file="archive", downsample_factor=1, upsample_factor=1):
         "Initiate load_waveforms object."
         # Specified directly by user:
         self.path = path
@@ -96,6 +102,7 @@ class load_waveforms:
         self.remove_response = False
         self.response_file_path = None
         self.downsample_factor = downsample_factor
+        self.upsample_factor = upsample_factor
         # Do some initial checks:
         if not starttime:
             if archive_vs_file != "file":
@@ -194,6 +201,11 @@ class load_waveforms:
 
         # And force all traces in stream to be same length:
         st = self._force_stream_length_consistency(st)
+
+        # And upsample data, if specified:
+        if self.upsample_factor > 1:
+            st.interpolate(sampling_rate=self.upsample_factor*st[0].stats.sampling_rate, 
+                            method="weighted_average_slopes") # ( or method="lanczos")
 
         # And downsample data, if specified:
         if self.downsample_factor > 1:

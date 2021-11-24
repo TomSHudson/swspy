@@ -68,7 +68,13 @@ class proc_many_events:
 
     downsample_factor : int (default = 1)
         Factor by which to downsample the data, to speed up processing.
-        If <downsample_factor> = 1, obviously doens't apply downsampling.
+        If <downsample_factor> = 1, doens't apply downsampling.
+
+    upsample_factor : int (default = 1)
+        Factor by which to upsample the data, to smooth waveforms for enhanced 
+        timeshift processing. Currently uses weighted average slopes 
+        interpolation method.
+        If <upsample_factor> = 1, doens't apply upsampling.
 
     coord_system : str
         Coordinate system to perform analysis in. Options are: LQT, ZNE. Will convert 
@@ -117,6 +123,7 @@ class proc_many_events:
         self.max_t_shift_s = 0.1
         self.n_win = 10
         self.downsample_factor = 1
+        self.upsample_factor = 1
         self.coord_system = "ZNE"
         self.sws_method = "EV_and_XC"
         # Define other processing auxilary params:
@@ -178,7 +185,7 @@ class proc_many_events:
             nlloc_hyp_data = read_nonlinloc.read_hyp_file(nlloc_fname)
             starttime = nlloc_hyp_data.origin_time - event_prepad
             endtime = nlloc_hyp_data.origin_time + event_postpad
-            load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor)
+            load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
             load_wfs_obj.filter = self.filter
             load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
             st = load_wfs_obj.read_waveform_data()
@@ -267,7 +274,7 @@ class proc_many_events:
             count+=1
             # 1. Get waveform data:
             event_sac_fnames_path = os.path.join(datadir, event_uid, "*.?H*")
-            load_wfs_obj = swspy.io.load_waveforms(event_sac_fnames_path, archive_vs_file="file", downsample_factor=self.downsample_factor)
+            load_wfs_obj = swspy.io.load_waveforms(event_sac_fnames_path, archive_vs_file="file", downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
             load_wfs_obj.filter = self.filter
             load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
             try:
