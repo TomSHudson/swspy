@@ -108,6 +108,15 @@ def _rotate_QT_comps(data_arr_Q, data_arr_T, rot_angle_rad):
     return data_arr_Q_rot, data_arr_T_rot
 
 
+def _get_ray_back_azi_and_inc_from_nonlinloc(nonlinloc_hyp_data, station):
+    """Function to get ray back azimuth and inclination from nonlinloc hyp data object."""
+    ray_back_azi = nonlinloc_hyp_data.phase_data[station]['S']['SAzim'] + 180.
+    if ray_back_azi >= 360.:
+        ray_back_azi = ray_back_azi - 360.
+    ray_inc_at_station = nonlinloc_hyp_data.phase_data[station]['S']['RDip']
+    return ray_back_azi, ray_inc_at_station
+
+
 def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_station):
     """
     Function to remove SWS from ZNE data for a single station.
@@ -728,7 +737,7 @@ class create_splitting_object:
             sys.exit()
 
         # Create datastores:
-        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'Q_w': []})
+        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
         self.phi_dt_grid_average = {}
         self.event_station_win_idxs = {}
 
@@ -820,7 +829,21 @@ class create_splitting_object:
             # opt_phi_from_N = self._rot_phi_from_sws_coords_to_deg_from_N(opt_phi, back_azi)
 
             # 8. And append data to overall datastore:
-            df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'Q_w' : [Q_w]})
+            # Find ray path data to output:
+            if self.nonlinloc_event_path:
+                # If nonlinloc supplied data:
+                ray_back_azi, ray_inc_at_station = _get_ray_back_azi_and_inc_from_nonlinloc(self.nonlinloc_hyp_data, station)
+            elif len(self.stations_in) > 0:
+                # Or if sws format data:
+                station_idx_tmp = self.stations_in.index(station)
+                ray_back_azi = self.back_azis_all_stations[station_idx_tmp]
+                ray_inc_at_station = self.receiver_inc_angles_all_stations[station_idx_tmp]
+            else:
+                # Else if can't specify, then return nans:
+                ray_back_azi = np.nan
+                ray_inc_at_station = np.nan
+            # And append data to result df:
+            df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'Q_w' : [Q_w], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
             self.sws_result_df = self.sws_result_df.append(df_tmp)
             opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
             opt_lag_idx = np.where(self.lags_labels == opt_lag)[0][0]
