@@ -967,7 +967,7 @@ class create_splitting_object:
             # plt.colorbar()
             # plt.tight_layout()
             if outdir:
-                plt.savefig(os.path.join(outdir, ''.join((self.event_uid, ".png"))), dpi=300)
+                plt.savefig(os.path.join(outdir, ''.join((self.event_uid, "_", station, ".png"))), dpi=300)
             if suppress_direct_plotting:
                 plt.ioff()
                 plt.close(fig)
