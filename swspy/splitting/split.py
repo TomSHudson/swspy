@@ -959,11 +959,12 @@ class create_splitting_object:
             wfs_ax_N.set_ylim(-1.1*max_amp, 1.1*max_amp)
             wfs_ax_E.set_ylim(-1.1*max_amp, 1.1*max_amp)
             # Uncorr NE:
-            ne_uncorr_ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data)
+            ne_uncorr_ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data, c='k')
             ne_uncorr_ax.set_xlim(-1.1*max_amp, 1.1*max_amp)
             ne_uncorr_ax.set_ylim(-1.1*max_amp, 1.1*max_amp)
             # Corr NE:
-            ne_corr_ax.plot(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, st_ZNE_curr_sws_corrected.select(channel="??N")[0].data)
+            ne_corr_ax.plot(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, 
+                                                            st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='#D73215')
             ne_corr_ax.set_xlim(-1.1*max_amp, 1.1*max_amp)
             ne_corr_ax.set_ylim(-1.1*max_amp, 1.1*max_amp)
             # phi - dt space:
