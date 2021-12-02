@@ -28,6 +28,7 @@ import subprocess
 import gc
 from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
 
+
 def find_nearest(array,value):
     idx = (np.abs(array-value)).argmin()
     return array[idx], idx
@@ -325,6 +326,7 @@ def _phi_dt_grid_search_EV_and_XC(data_arr_Q, data_arr_T, win_start_idxs, win_en
                     xy_arr = np.vstack((rolled_rot_T_curr, rolled_rot_Q_curr))
                     lambdas_unsort = np.linalg.eigvalsh(np.cov(xy_arr))
                     lambdas = np.sort(lambdas_unsort)
+                    #lambdas[lambdas==0] = 1e-20
 
                     # And save eigenvalue results to datastores:
                     # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable):
@@ -332,6 +334,7 @@ def _phi_dt_grid_search_EV_and_XC(data_arr_Q, data_arr_T, win_start_idxs, win_en
 
                     # ================== Calculate splitting parameters via. XC method ==================
                     # Calculate XC coeffecient and save to array:
+                    # if np.std(rolled_rot_Q_curr)  * np.std(rolled_rot_T_curr) > 0. and len(rolled_rot_T_curr) > 0:
                     grid_search_results_all_win_XC[grid_search_idx,i,j] = np.sum( np.abs(rolled_rot_Q_curr * rolled_rot_T_curr) / (np.std(rolled_rot_Q_curr) * 
                                                                 np.std(rolled_rot_T_curr))) / len(rolled_rot_T_curr)
 
@@ -504,10 +507,10 @@ class create_splitting_object:
         rotate_step_deg = self.rotate_step_deg
 
         # Setup datastores:
-        # if 'grid_search_results_all_win_EV' in globals():
-        #     del grid_search_results_all_win_EV
-        # if 'grid_search_results_all_win_XC' in globals():
-        #     del grid_search_results_all_win_XC
+        if 'grid_search_results_all_win_EV' in globals():
+            del grid_search_results_all_win_EV
+        if 'grid_search_results_all_win_XC' in globals():
+            del grid_search_results_all_win_XC
         grid_search_results_all_win_EV = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
         if sws_method == "EV_and_XC":
             grid_search_results_all_win_XC = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
@@ -520,10 +523,15 @@ class create_splitting_object:
             grid_search_results_all_win_EV = _phi_dt_grid_search_EV(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, 
                                                         n_win, fs, rotate_step_deg, grid_search_results_all_win_EV)
         elif sws_method == "EV_and_XC":
-            grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search_EV_and_XC(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, 
+            try:
+                grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search_EV_and_XC(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, 
                                                                                                             n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                                                                                             grid_search_results_all_win_EV, grid_search_results_all_win_XC)
-        
+            except np.linalg.LinAlgError:
+                print("Warning: Failed to calculate grid search results due to NaN issue.")
+                grid_search_results_all_win_EV = None
+                grid_search_results_all_win_XC = None
+
         # And return results:
         if sws_method == "EV":
             return grid_search_results_all_win_EV, lags_labels, phis_labels
@@ -810,6 +818,11 @@ class create_splitting_object:
             elif self.sws_method == "EV_and_XC":
                 grid_search_results_all_win_EV, grid_search_results_all_win_XC, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_P.data, tr_A.data, win_start_idxs, win_end_idxs, 
                                                                                                                     sws_method=self.sws_method)
+                # And check that returned values without issues:
+                if not grid_search_results_all_win_EV:
+                    print("Skipping station:", station)
+                    continue
+
             # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable):
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
