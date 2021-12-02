@@ -797,8 +797,12 @@ class create_splitting_object:
                 arrival_time_curr = self.S_phase_arrival_times[station_idx_tmp]
             st_BPA_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
                                 endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
-            tr_P = st_BPA_curr.select(station=station, channel="??Q")[0]
-            tr_A = st_BPA_curr.select(station=station, channel="??T")[0]
+            try:
+                tr_P = st_BPA_curr.select(station=station, channel="??Q")[0]
+                tr_A = st_BPA_curr.select(station=station, channel="??T")[0]
+            except IndexError:
+                print("Warning: Insufficient data to perform splitting. Skipping this event-receiver observation.")
+                continue
 
             # 3. Get window indices:
             self.fs = tr_A.stats.sampling_rate
