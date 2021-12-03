@@ -176,15 +176,33 @@ class load_waveforms:
         # Loop over stations (if specified):
         if self.stations:
             for station in self.stations:
-                st_tmp = obspy.read(os.path.join(datadir, ''.join(("*", self.event_uid, station, "*", 
+                try:
+                    st_tmp = obspy.read(os.path.join(datadir, ''.join(("*", self.event_uid, station, "*", 
                                     self.channels, "*")))).detrend("demean")
-                for tr_tmp in st_tmp:
-                    st.append(tr_tmp)
-                del st_tmp
-                gc.collect()
+                    for tr_tmp in st_tmp:
+                        st.append(tr_tmp)
+                    del st_tmp
+                    gc.collect()
+                except TypeError:
+                    continue
         else:
-            st = obspy.read(os.path.join(datadir, ''.join(("*", self.event_uid, "*", self.channels, 
+            try:
+                st = obspy.read(os.path.join(datadir, ''.join(("*", self.event_uid, "*", self.channels, 
                                 "*")))).detrend("demean")
+            # Deal with incorrectly formatted individual files:
+            except TypeError:
+                st = obspy.Stream()
+                for fname_tmp in glob.glob(os.path.join(datadir, ''.join(("*", self.event_uid, "*", 
+                                            self.channels, "*")))):
+                    try:
+                        st_tmp = obspy.read(fname_tmp)
+                        for tr in st_tmp:
+                            st.append(tr)
+                    except TypeError:
+                        continue
+
+
+
 
         # Apply any filtering, if specified:
         if self.filter:
