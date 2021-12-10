@@ -188,7 +188,12 @@ class proc_many_events:
             load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
             load_wfs_obj.filter = self.filter
             load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
-            st = load_wfs_obj.read_waveform_data()
+            try:
+                st = load_wfs_obj.read_waveform_data()
+            except Exception as e:
+                print("Warning:", e)
+                print("Skipping this event.")
+                continue
 
             # 2. Calculate splitting for event:
             # 2.i. Setup splitting event object:
