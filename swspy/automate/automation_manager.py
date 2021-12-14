@@ -181,14 +181,14 @@ class proc_many_events:
         for nlloc_fname in nlloc_fnames:
             print(''.join(("Processing for event: ", str(count), "/", str(len(nlloc_fnames)))))
             count+=1
-            # 1. Get waveform data:
-            nlloc_hyp_data = read_nonlinloc.read_hyp_file(nlloc_fname)
-            starttime = nlloc_hyp_data.origin_time - event_prepad
-            endtime = nlloc_hyp_data.origin_time + event_postpad
-            load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
-            load_wfs_obj.filter = self.filter
-            load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
+            # 1. Get waveform and other event data:
             try:
+                nlloc_hyp_data = read_nonlinloc.read_hyp_file(nlloc_fname)
+                starttime = nlloc_hyp_data.origin_time - event_prepad
+                endtime = nlloc_hyp_data.origin_time + event_postpad
+                load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
+                load_wfs_obj.filter = self.filter
+                load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
                 st = load_wfs_obj.read_waveform_data()
             except Exception as e:
                 print("Warning:", e)

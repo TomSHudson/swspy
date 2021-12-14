@@ -615,7 +615,7 @@ class create_splitting_object:
         return phis, lags, phi_errs, lag_errs
 
 
-    def _sws_win_clustering(self, lags, phis, lag_errs, phi_errs, method="dbscan"):
+    def _sws_win_clustering(self, lags, phis, lag_errs, phi_errs, method="dbscan", return_clusters_data=False):
         """Function to perform sws clustering of phis and lags. This clustering is based on the method of 
         Teanby2004, except that this function uses new coordinate system to deal with the cyclic nature  
         of phi about -90,90, and therefore uses a different clustering algorithm (dbscan) to perform 
@@ -671,11 +671,17 @@ class create_splitting_object:
             opt_lag_err = smallest_var_cluster['lag_errs'][opt_obs_idx]
             opt_phi_err = smallest_var_cluster['phi_errs'][opt_obs_idx]
 
-            return opt_phi, opt_lag, opt_phi_err, opt_lag_err
+            if return_clusters_data:
+                return opt_phi, opt_lag, opt_phi_err, opt_lag_err, clusters_dict, min_var_idx
+            else:
+                return opt_phi, opt_lag, opt_phi_err, opt_lag_err
 
         else:
             print("Warning: Failed to cluster for current receiver of current event. Skipping receiver.")
-            return None, None, None, None
+            if return_clusters_data:
+                return None, None, None, None, None, None
+            else:
+                return None, None, None, None
 
 
     def _calc_Q_w(self, opt_phi_EV, opt_lag_EV, grid_search_results_all_win_XC, tr_for_dof, method="dbscan"):
@@ -715,7 +721,7 @@ class create_splitting_object:
         return phi_rot_deg 
 
 
-    def perform_sws_analysis(self, coord_system="ZNE", sws_method="EV"):
+    def perform_sws_analysis(self, coord_system="ZNE", sws_method="EV", return_clusters_data=True):
         """Function to perform splitting analysis. Works in LQT coordinate system 
         as then performs shear-wave-splitting in 3D.
         
@@ -732,6 +738,10 @@ class create_splitting_object:
             al. (2013)). EV_and_XC - Same as EV, except also performs cross-correlation 
             for automation approach, as in Wustefeld et al. (2010). Default is EV.
 
+        return_clusters_data : bool
+            If True, returns clustering data information. This is primarily used for 
+            plotting. Default is False.
+
         """
         # Save any parameters to class object:
         self.coord_system = coord_system
@@ -744,6 +754,8 @@ class create_splitting_object:
 
         # Create datastores:
         self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
+        if return_clusters_data:
+            self.clustering_info = {}
         self.phi_dt_grid_average = {}
         self.event_station_win_idxs = {}
 
@@ -831,7 +843,10 @@ class create_splitting_object:
 
             # 6. Perform clustering for all windows to find best result:
             # (Teanby2004 method, but in new coordinate space with dbscan clustering)
-            opt_phi, opt_lag, opt_phi_err, opt_lag_err = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+            if return_clusters_data:
+                opt_phi, opt_lag, opt_phi_err, opt_lag_err, clusters_dict, min_var_idx = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan", return_clusters_data=True)
+            else:
+                opt_phi, opt_lag, opt_phi_err, opt_lag_err = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
             # And check that clustered:
             if not opt_phi:
                 # If didn't cluster, skip station:
@@ -871,6 +886,10 @@ class create_splitting_object:
             self.event_station_win_idxs[station] = {}
             self.event_station_win_idxs[station]['win_start_idxs'] = win_start_idxs
             self.event_station_win_idxs[station]['win_end_idxs'] = win_end_idxs
+            if return_clusters_data:
+                self.clustering_info[station] = {}
+                self.clustering_info[station]['min_var_idx'] = min_var_idx
+                self.clustering_info[station]['clusters_dict'] = clusters_dict
 
             # ???. Apply automation approach of Wuestefeld2010 ?!?
 
@@ -930,7 +949,7 @@ class create_splitting_object:
             fig = plt.figure(constrained_layout=True, figsize=(8,6))
             if suppress_direct_plotting:
                 plt.ion()
-            gs = fig.add_gridspec(2, 3)
+            gs = fig.add_gridspec(3, 4)
             wfs_ax = fig.add_subplot(gs[0, 0:2])
             wfs_ax.get_xaxis().set_visible(False)
             wfs_ax.get_yaxis().set_visible(False)
@@ -938,11 +957,17 @@ class create_splitting_object:
             wfs_ax_Z = wfs_ax.inset_axes([0, 0.666666, 1.0, 0.333333])#wfs_ax, width="100%", height="30%", loc=1)#, bbox_to_anchor=(.7, .5, .3, .5))
             wfs_ax_N = wfs_ax.inset_axes([0, 0.333333, 1.0, 0.333333])#wfs_ax, width="100%", height="30%", loc=2)
             wfs_ax_E = wfs_ax.inset_axes([0, 0.0, 1.0, 0.333333])#wfs_ax, width="100%", height="30%", loc=3)
-            text_ax = fig.add_subplot(gs[0, 2])
+            text_ax = fig.add_subplot(gs[0, 3])
             text_ax.axis('off')
             ne_uncorr_ax = fig.add_subplot(gs[1, 0])
             ne_corr_ax = fig.add_subplot(gs[1, 1])
-            phi_dt_ax = fig.add_subplot(gs[1, 2])
+            phi_dt_ax = fig.add_subplot(gs[1:3, 2:4])
+            if self.clustering_info:
+                cluster_results_ax = fig.add_subplot(gs[0, 2])
+                cluster_results_ax.get_xaxis().set_visible(False)
+                cluster_results_ax.get_yaxis().set_visible(False)
+                cluster_results_ax_phi = cluster_results_ax.inset_axes([0, 0.5, 1.0, 0.5])
+                cluster_results_ax_dt = cluster_results_ax.inset_axes([0, 0.0, 1.0, 0.5])
 
             # Plot data on figure:
             t = np.arange(len(st_ZNE_curr.select(channel="??Z")[0].data)) / st_ZNE_curr.select(channel="??Z")[0].stats.sampling_rate
@@ -980,11 +1005,37 @@ class create_splitting_object:
                                                             st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='#D73215')
             ne_corr_ax.set_xlim(-1.1*max_amp, 1.1*max_amp)
             ne_corr_ax.set_ylim(-1.1*max_amp, 1.1*max_amp)
+
             # phi - dt space:
             Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
             Z = self.phi_dt_grid_average[station]
             phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
             phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g')
+
+            # Add clustering data if available:
+            if self.clustering_info:
+                clust_idxs = list(self.clustering_info[station]['clusters_dict'].keys())
+                samp_idx_count = 0
+                for clust_idx in clust_idxs:
+                    # PLot cluster phis:
+                    y_tmp = self.clustering_info[station]['clusters_dict'][clust_idx]['phis']
+                    x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
+                    y_err = self.clustering_info[station]['clusters_dict'][clust_idx]['phi_errs']
+                    cluster_results_ax_phi.errorbar(x_tmp, y_tmp, yerr=y_err, c='k', markersize=2.5, alpha=0.5)
+                    # And plot cluster dts:
+                    y_tmp = self.clustering_info[station]['clusters_dict'][clust_idx]['lags']
+                    x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
+                    y_err = self.clustering_info[station]['clusters_dict'][clust_idx]['lag_errs']
+                    cluster_results_ax_dt.errorbar(x_tmp, y_tmp, yerr=y_err, c='k', markersize=2.5, alpha=0.5)                    
+                    # And update x sample count:
+                    samp_idx_count = samp_idx_count + len(y_tmp)
+                # And set limits and labels:
+                cluster_results_ax_phi.set_ylim(-90, 90)
+                cluster_results_ax_dt.set_ylim(0, np.max(self.lags_labels))
+                cluster_results_ax_dt.set_xlabel("Cluster sample")
+                cluster_results_ax_phi.set_ylabel("$\phi$ ($^o$)")
+                cluster_results_ax_dt.set_ylabel("$\delta t$ ($s$)")
+
             # Add text:
             text_ax.text(0,0,"Event origin time : \n"+self.origin_time.strftime("%Y-%m-%dT%H:%M:%SZ"), fontsize='small')
             text_ax.text(0,-1,"Station : "+station, fontsize='small')
