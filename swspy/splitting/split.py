@@ -29,6 +29,10 @@ import gc
 from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
 
 
+class CustomError(Exception):
+    pass
+
+
 def find_nearest(array,value):
     idx = (np.abs(array-value)).argmin()
     return array[idx], idx
@@ -880,8 +884,11 @@ class create_splitting_object:
             # And append data to result df:
             df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'Q_w' : [Q_w], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
             self.sws_result_df = self.sws_result_df.append(df_tmp)
-            opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
-            opt_lag_idx = np.where(self.lags_labels == opt_lag)[0][0]
+            try:
+                opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
+                opt_lag_idx = np.where(self.lags_labels == opt_lag)[0][0]
+            except IndexError:
+                raise CustomError("Cannot find optimal phi or lag.")
             self.phi_dt_grid_average[station] = np.average(grid_search_results_all_win_EV, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
             self.event_station_win_idxs[station] = {}
             self.event_station_win_idxs[station]['win_start_idxs'] = win_start_idxs
