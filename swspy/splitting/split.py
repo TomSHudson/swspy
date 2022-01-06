@@ -125,7 +125,7 @@ def _get_ray_back_azi_and_inc_from_nonlinloc(nonlinloc_hyp_data, station):
     return ray_back_azi, ray_inc_at_station
 
 
-def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_station):
+def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_station, return_BPA=False):
     """
     Function to remove SWS from ZNE data for a single station.
     Note: Consistency in this function with sws measurement. Uses T in x-direction and Q in y direction 
@@ -143,11 +143,15 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         Back azimuth angle from reciever to event in degrees from North.
     event_inclin_angle_at_station : float
         Inclination angle of arrival at receiver, in degrees from vertical down.
+    return_LQT : bool
+        If True, will return obspy stream with Z,N,E and B,P,A channels (as in 
+        Walsh (2013)). Optional. Default = False.
 
     Returns
     -------
-    st_LQT_corr : obspy stream object
-        Corrected data
+    st_ZNE_corr : obspy stream object
+        Corrected data, in ZNE coordinates (unless <return_BPA> = True, then will 
+        also output BPA channels too).
     """
     # Perform inital data checks:
     if len(st_ZNE_uncorr.select(channel="??N")) != 1:
@@ -176,6 +180,21 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
     # And rotate back into ZNE coords:
     st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr, back_azi)
     st_ZNE_corr = _rotate_LQT_to_ZNE(st_LQT_corr, back_azi, event_inclin_angle_at_station)
+    # And append BPA channels if specified:
+    if return_BPA:
+        chan_prefixes = st_ZNE_corr.select(channel="??Z")[0].stats.channel[0:2]
+        # Append B channel:
+        tr_tmp = st_BPA_corr.select(channel="??L")[0]
+        tr_tmp.stats.channel = "".join((chan_prefixes, "B"))
+        st_ZNE_corr.append(tr_tmp)
+        # Append P channel:
+        tr_tmp = st_BPA_corr.select(channel="??Q")[0]
+        tr_tmp.stats.channel = "".join((chan_prefixes, "P"))
+        st_ZNE_corr.append(tr_tmp)
+        # Append A channel:
+        tr_tmp = st_BPA_corr.select(channel="??T")[0]
+        tr_tmp.stats.channel = "".join((chan_prefixes, "A"))
+        st_ZNE_corr.append(tr_tmp)
     # And tidy:
     del st_LQT_uncorr, st_BPA_uncorr, st_LQT_corr, st_BPA_corr
     gc.collect()
@@ -391,6 +410,8 @@ class create_splitting_object:
     perform_sws_analysis : Function to perform shear-wave splitting analysis.
     plot : Function to plot the shear-wave splitting results.
     save_result : Function to save sws results to file.
+    save_wfs : Function to save uncorrected and corrected waveforms to file.
+
 
     """
 
@@ -725,6 +746,55 @@ class create_splitting_object:
         return phi_rot_deg 
 
 
+    def _get_uncorr_and_corr_waveforms(self, station):
+        """Function to return uncorrected and corrected waveforms, if specified."""
+        # 1. Get uncorrected waveforms:
+        st_ZNE_curr = self.st.select(station=station).copy()
+        try:
+            back_azi = self.nonlinloc_hyp_data.phase_data[station]['S']['SAzim'] + 180.
+            if back_azi >= 360.:
+                back_azi = back_azi - 360.
+            if self.coord_system == "LQT":
+                event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
+                print("Warning: LQT coord. system not yet fully tested. \n Might produce spurious results...")
+            elif self.coord_system == "ZNE":
+                event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence, simulating NE components.
+            else:
+                print("Error: coord_system =", self.coord_system, "not supported. Exiting.")
+                sys.exit()
+        except (KeyError, AttributeError) as e:
+            if len(self.stations_in) > 0:
+                station_idx_tmp = self.stations_in.index(station)
+                back_azi = self.back_azis_all_stations[station_idx_tmp]
+                event_inclin_angle_at_station = self.receiver_inc_angles_all_stations[station_idx_tmp]
+            else:
+                print("No S phase pick for station:", station, "therefore skipping this station.")
+                raise CustomError("No S phase pick for station:", station, "therefore skipping this station.")
+
+        # And trim data:
+        if self.nonlinloc_event_path:
+            arrival_time_curr = self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time']
+        else:
+            arrival_time_curr = self.S_phase_arrival_times[station_idx_tmp]
+        st_ZNE_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
+                            endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
+
+        # 2. And remove splitting to get corrected waveforms:
+        try:
+            phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi'])
+            dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
+            phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
+            dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
+            Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
+        except TypeError:
+            # If cannot get parameters becuase splitting clustering failed, skip station:
+            raise CustomError("Cannot get splitting parameters because splitting clustering failed.")
+        st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station,
+                                                    return_BPA=True)
+
+        return st_ZNE_curr, st_ZNE_curr_sws_corrected
+    
+
     def perform_sws_analysis(self, coord_system="ZNE", sws_method="EV", return_clusters_data=True):
         """Function to perform splitting analysis. Works in LQT coordinate system 
         as then performs shear-wave-splitting in 3D.
@@ -910,36 +980,12 @@ class create_splitting_object:
         for station in self.stations_list:
             # Get data:
             # Waveforms:
-            st_ZNE_curr = self.st.select(station=station).copy()
             try:
-                back_azi = self.nonlinloc_hyp_data.phase_data[station]['S']['SAzim'] + 180.
-                if back_azi >= 360.:
-                    back_azi = back_azi - 360.
-                if self.coord_system == "LQT":
-                    event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
-                    print("Warning: LQT coord. system not yet fully tested. \n Might produce spurious results...")
-                elif self.coord_system == "ZNE":
-                    event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence, simulating NE components.
-                else:
-                    print("Error: coord_system =", self.coord_system, "not supported. Exiting.")
-                    sys.exit()
-            except (KeyError, AttributeError) as e:
-                if len(self.stations_in) > 0:
-                    station_idx_tmp = self.stations_in.index(station)
-                    back_azi = self.back_azis_all_stations[station_idx_tmp]
-                    event_inclin_angle_at_station = self.receiver_inc_angles_all_stations[station_idx_tmp]
-                else:
-                    print("No S phase pick for station:", station, "therefore skipping this station.")
-                    continue
-            # And trim data:
-            if self.nonlinloc_event_path:
-                arrival_time_curr = self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time']
-            else:
-                arrival_time_curr = self.S_phase_arrival_times[station_idx_tmp]
-            st_ZNE_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
-                                endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
-
-            # And remove splitting:
+                st_ZNE_curr, st_ZNE_curr_sws_corrected = self._get_uncorr_and_corr_waveforms(station)
+            except CustomError:
+                print("Skipping waveform correction for station:", station)
+                continue
+            # Splitting parameters:
             try:
                 phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi'])
                 dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
@@ -948,9 +994,10 @@ class create_splitting_object:
                 Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
             except TypeError:
                 # If cannot get parameters becuase splitting clustering failed, skip station:
+                print("Cannot get splitting parameters because splitting clustering failed. Skipping station:", 
+                        station)
                 continue
-            st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station)
-
+        
             # Plot data:
             # Setup figure:
             fig = plt.figure(constrained_layout=True, figsize=(8,6))
@@ -1083,7 +1130,32 @@ class create_splitting_object:
         fname_out = os.path.join(outdir, ''.join((self.event_uid, "_sws_result.csv")))
         self.sws_result_df.to_csv(fname_out, index=False)
         print("Saved sws result to:", fname_out)
+    
+
+    def save_wfs(self, outdir=os.getcwd()):
+        """Function to save waveforms outputs. Outputs are unccorrected and corrected waveforms for 
+        all events. Saves result as <event_uid>.mseed, to <outdir>."""
+        # Loop over stations, appending data to streams:
+        st_uncorr_out = obspy.Stream()
+        st_corr_out = obspy.Stream()
+        for station in self.stations_list:
+            # Get waveforms:
+            try:
+                st_ZNE_curr, st_ZNE_curr_sws_corrected = self._get_uncorr_and_corr_waveforms(station)
+            except CustomError:
+                continue
+            # And append to output streams:
+            for tr in st_ZNE_curr:
+                st_uncorr_out.append(tr)
+            for tr in st_ZNE_curr_sws_corrected:
+                st_corr_out.append(tr)    
+        # And write out:
+        st_uncorr_out.write(os.path.join(outdir, ''.join((self.event_uid, "_wfs_uncorr.mseed"))), format="MSEED")
+        st_corr_out.write(os.path.join(outdir, ''.join((self.event_uid, "_wfs_corr.mseed"))), format="MSEED")
+        print("Saved sws wfs to:", os.path.join(outdir, ''.join((self.event_uid, "_wfs_*.mseed"))))
 
 
+
+            
     
     

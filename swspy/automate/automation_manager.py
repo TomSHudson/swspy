@@ -87,9 +87,16 @@ class proc_many_events:
         al. (2013)). EV_and_XC - Same as EV, except also performs cross-correlation 
         for automation approach, as in Wustefeld et al. (2010). Default is EV_and_XC.
 
+    output_wfs : bool
+        If True, will save uncorrected and corrected waveforms to:
+        <outdir>/<data>/<event_uid>_wfs_uncorr.png
+        and
+        <outdir>/<data>/<event_uid>_wfs_corr.png
+        Default is True.
+
     output_plots : bool
         If True, will save output plots to:
-        <outdir>/<data>/<event_uid>_<station>.png
+        <outdir>/<plots>/<event_uid>_<station>.png
         Default is False.
 
     suppress_direct_plotting : bool
@@ -127,6 +134,7 @@ class proc_many_events:
         self.coord_system = "ZNE"
         self.sws_method = "EV_and_XC"
         # Define other processing auxilary params:
+        self.output_wfs = True
         self.output_plots = False
         self.suppress_direct_plotting = True
 
@@ -209,6 +217,8 @@ class proc_many_events:
 
             # 3. Save splitting for event:
             splitting_event.save_result(outdir=data_outdir)
+            if self.output_wfs:
+                splitting_event.save_wfs(outdir=data_outdir)
             if self.output_plots:
                 splitting_event.plot(outdir=plot_outdir, suppress_direct_plotting=self.suppress_direct_plotting)
 
@@ -322,6 +332,8 @@ class proc_many_events:
 
             # 3. Save splitting for event:
             splitting_event.save_result(outdir=data_outdir)
+            if self.output_wfs:
+                splitting_event.save_wfs(outdir=data_outdir)
             if self.output_plots:
                 splitting_event.plot(outdir=plot_outdir, suppress_direct_plotting=self.suppress_direct_plotting)
 
