@@ -125,7 +125,8 @@ def _get_ray_back_azi_and_inc_from_nonlinloc(nonlinloc_hyp_data, station):
     return ray_back_azi, ray_inc_at_station
 
 
-def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_station, return_BPA=False):
+def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_station, return_BPA=False, 
+                        return_FS=True):
     """
     Function to remove SWS from ZNE data for a single station.
     Note: Consistency in this function with sws measurement. Uses T in x-direction and Q in y direction 
@@ -143,9 +144,12 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         Back azimuth angle from reciever to event in degrees from North.
     event_inclin_angle_at_station : float
         Inclination angle of arrival at receiver, in degrees from vertical down.
-    return_LQT : bool
+    return_BPA : bool
         If True, will return obspy stream with Z,N,E and B,P,A channels (as in 
         Walsh (2013)). Optional. Default = False.
+    return_FS : bool
+        If True, will return obspy stream with F (fast) and S (slow) channels 
+        also included. Optional. Default = True.
 
     Returns
     -------
@@ -168,13 +172,25 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
     fs = st_BPA_uncorr.select(channel="??T")[0].stats.sampling_rate
     # 1. Rotate data into splitting coordinates:
     x, y = _rotate_QT_comps(x_in, y_in, phi * np.pi/180)
+    # And write fast and slow directions out as F and S channels:
+    chan_prefixes = st_ZNE_uncorr.select(channel="??Z")[0].stats.channel[0:2]
+    st_BPA_corr = st_BPA_uncorr.copy()
+    # For fast:
+    tr_tmp = st_BPA_corr.select(channel="??Q")[0].copy()
+    tr_tmp.data = x
+    tr_tmp.stats.channel = "".join((chan_prefixes, "F"))
+    st_BPA_corr.append(tr_tmp)
+    # For slow:
+    tr_tmp = st_BPA_corr.select(channel="??T")[0].copy()
+    tr_tmp.data = y
+    tr_tmp.stats.channel = "".join((chan_prefixes, "S"))
+    st_BPA_corr.append(tr_tmp)
     # 2. Apply reverse time shift to Q and T data:
     x = np.roll(x, int((dt / 2) * fs))
     y = np.roll(y, -int((dt / 2) * fs))
     # 3. And rotate back to QT (PA) coordinates:
     x, y = _rotate_QT_comps(x, y, -phi * np.pi/180)
     # And put data back in stream form:
-    st_BPA_corr = st_BPA_uncorr.copy()
     st_BPA_corr.select(channel="??Q")[0].data = x 
     st_BPA_corr.select(channel="??T")[0].data = y
     # And rotate back into ZNE coords:
@@ -182,7 +198,6 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
     st_ZNE_corr = _rotate_LQT_to_ZNE(st_LQT_corr, back_azi, event_inclin_angle_at_station)
     # And append BPA channels if specified:
     if return_BPA:
-        chan_prefixes = st_ZNE_corr.select(channel="??Z")[0].stats.channel[0:2]
         # Append B channel:
         tr_tmp = st_BPA_corr.select(channel="??L")[0]
         tr_tmp.stats.channel = "".join((chan_prefixes, "B"))
@@ -195,6 +210,15 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         tr_tmp = st_BPA_corr.select(channel="??T")[0]
         tr_tmp.stats.channel = "".join((chan_prefixes, "A"))
         st_ZNE_corr.append(tr_tmp)
+    # And append fast and slow channels:
+    if return_FS:
+        # Append F channel:
+        tr_tmp = st_BPA_corr.select(channel="??F")[0]
+        st_ZNE_corr.append(tr_tmp)
+        # Append S channel:
+        tr_tmp = st_BPA_corr.select(channel="??S")[0]
+        st_ZNE_corr.append(tr_tmp)
+
     # And tidy:
     del st_LQT_uncorr, st_BPA_uncorr, st_LQT_corr, st_BPA_corr
     gc.collect()
