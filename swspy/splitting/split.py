@@ -210,14 +210,10 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         tr_tmp = st_BPA_corr.select(channel="??T")[0]
         tr_tmp.stats.channel = "".join((chan_prefixes, "A"))
         st_ZNE_corr.append(tr_tmp)
-    # And append fast and slow channels:
-    if return_FS:
-        # Append F channel:
-        tr_tmp = st_BPA_corr.select(channel="??F")[0]
-        st_ZNE_corr.append(tr_tmp)
-        # Append S channel:
-        tr_tmp = st_BPA_corr.select(channel="??S")[0]
-        st_ZNE_corr.append(tr_tmp)
+    # And remove fast and slow channels, if not wanted:
+    if not return_FS:
+        st_ZNE_corr.remove(st_ZNE_corr.select(channel="??F")[0])
+        t_ZNE_corr.remove(st_ZNE_corr.select(channel="??S")[0])
 
     # And tidy:
     del st_LQT_uncorr, st_BPA_uncorr, st_LQT_corr, st_BPA_corr
