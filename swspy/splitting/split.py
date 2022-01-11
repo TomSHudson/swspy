@@ -1170,11 +1170,13 @@ class create_splitting_object:
             for tr in st_ZNE_curr_sws_corrected:
                 st_corr_out.append(tr)    
         # And write out:
-        st_uncorr_out.write(os.path.join(outdir, ''.join((self.event_uid, "_wfs_uncorr.mseed"))), format="MSEED")
-        st_corr_out.write(os.path.join(outdir, ''.join((self.event_uid, "_wfs_corr.mseed"))), format="MSEED")
-        print("Saved sws wfs to:", os.path.join(outdir, ''.join((self.event_uid, "_wfs_*.mseed"))))
-
-
+        try:
+            st_uncorr_out.write(os.path.join(outdir, ''.join((self.event_uid, "_wfs_uncorr.mseed"))), format="MSEED")
+            st_corr_out.write(os.path.join(outdir, ''.join((self.event_uid, "_wfs_corr.mseed"))), format="MSEED")
+            print("Saved sws wfs to:", os.path.join(outdir, ''.join((self.event_uid, "_wfs_*.mseed"))))
+        except obspy.core.util.obspy_types.ObsPyException:
+            print("Warning: Empty stream therefore unable to write to file. Continueing.")
+            pass 
 
             
     
