@@ -603,11 +603,12 @@ class create_splitting_object:
         # Use transverse component to calculate dof
         dof = calc_dof(tr_for_dof.data)
         conf_bound = ftest(error_surf, dof, alpha=0.05, k=2)
+        # conf_bound = ftest(error_surf, dof, alpha=0.33, k=2)
         conf_mask = error_surf <= conf_bound
 
         # Find lag dt error:
-        # (= 1/4 width of confidence box (see Silver1991))
-        lag_mask = conf_mask.any(axis=0)
+        # (= 1/2 (not 1/4) width of confidence box (see Silver1991))
+        lag_mask = conf_mask.any(axis=1) #(axis=0) # Condense axis1 down along lag (axis0)
         true_idxs = np.where(lag_mask)[0]
         if len(true_idxs) == 0:
             # Artifically set error to zero, as cannot calculte error:
@@ -615,24 +616,24 @@ class create_splitting_object:
         else:
             # Else calculate error, if possible:
             lag_step_s = lags_labels[1] - lags_labels[0]
-            lag_err = (true_idxs[-1] - true_idxs[0] + 1) * lag_step_s * 0.25
+            lag_err = (true_idxs[-1] - true_idxs[0] + 1) * lag_step_s * 0.5 #0.25
 
         # Find fast direction phi error:
-        # (= 1/4 width of confidence box (see Silver1991))
+        # (= 1/2 (not 1/4) width of confidence box (see Silver1991))
         # (Note: This must deal with angle symetry > 90 or < -90)
-        phi_mask = conf_mask.any(axis=1)
-        phi_mask_with_pos_neg_overlap = np.hstack((phi_mask,phi_mask, phi_mask))
+        phi_mask = conf_mask.any(axis=0) #(axis=1) # Condense axis0 down along phi (axis1)
+        phi_mask_with_pos_neg_overlap = np.hstack((phi_mask, phi_mask, phi_mask))
         if len(np.where(phi_mask_with_pos_neg_overlap)[0]) > 0:
             # Calculate phi error:
             max_false_len = np.diff(np.where(phi_mask_with_pos_neg_overlap)).max() - 1
             # shortest line that contains ALL true values is then:
             max_true_len = len(phi_mask) - max_false_len
+            ###max_true_len = np.diff(np.where(phi_mask_with_pos_neg_overlap)).max() + 1
             phi_step_deg = phis_labels[1] - phis_labels[0]
-            phi_err = max_true_len * phi_step_deg * 0.25
+            phi_err = max_true_len * phi_step_deg * 0.5 #0.25
         else:
             # Set phi error equal to zero, as not possible to calculate:
             phi_err = 0.
-
 
         return phi_err, lag_err 
 
@@ -1024,17 +1025,19 @@ class create_splitting_object:
             if suppress_direct_plotting:
                 plt.ion()
             gs = fig.add_gridspec(3, 4)
-            wfs_ax = fig.add_subplot(gs[0, 0:2])
+            wfs_ax = fig.add_subplot(gs[0:2, 0:2])
             wfs_ax.get_xaxis().set_visible(False)
             wfs_ax.get_yaxis().set_visible(False)
             # wfs_ax_Z = inset_axes(wfs_ax, width="100%", height="100%")#, bbox_to_anchor=(.7, .5, .3, .5))
-            wfs_ax_Z = wfs_ax.inset_axes([0, 0.666666, 1.0, 0.333333])#wfs_ax, width="100%", height="30%", loc=1)#, bbox_to_anchor=(.7, .5, .3, .5))
-            wfs_ax_N = wfs_ax.inset_axes([0, 0.333333, 1.0, 0.333333])#wfs_ax, width="100%", height="30%", loc=2)
-            wfs_ax_E = wfs_ax.inset_axes([0, 0.0, 1.0, 0.333333])#wfs_ax, width="100%", height="30%", loc=3)
+            wfs_ax_Z = wfs_ax.inset_axes([0, 0.8, 1.0, 0.2])#wfs_ax, width="100%", height="30%", loc=1)#, bbox_to_anchor=(.7, .5, .3, .5))
+            wfs_ax_N = wfs_ax.inset_axes([0, 0.6, 1.0, 0.2])#wfs_ax, width="100%", height="30%", loc=2)
+            wfs_ax_E = wfs_ax.inset_axes([0, 0.4, 1.0, 0.2])#wfs_ax, width="100%", height="30%", loc=3)
+            wfs_ax_F = wfs_ax.inset_axes([0, 0.2, 1.0, 0.2])#wfs_ax, width="100%", height="30%", loc=3)
+            wfs_ax_S = wfs_ax.inset_axes([0, 0.0, 1.0, 0.2])#wfs_ax, width="100%", height="30%", loc=3)
             text_ax = fig.add_subplot(gs[0, 3])
             text_ax.axis('off')
-            ne_uncorr_ax = fig.add_subplot(gs[1, 0])
-            ne_corr_ax = fig.add_subplot(gs[1, 1])
+            ne_uncorr_ax = fig.add_subplot(gs[2, 0])
+            ne_corr_ax = fig.add_subplot(gs[2, 1])
             phi_dt_ax = fig.add_subplot(gs[1:3, 2:4])
             if self.clustering_info:
                 cluster_results_ax = fig.add_subplot(gs[0, 2])
@@ -1058,6 +1061,8 @@ class create_splitting_object:
             wfs_ax_Z.plot(t, st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data, c='#D73215')
             wfs_ax_N.plot(t, st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='#D73215')
             wfs_ax_E.plot(t, st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, c='#D73215')
+            wfs_ax_F.plot(t, st_ZNE_curr_sws_corrected.select(channel="??F")[0].data, c='#1E69A9')
+            wfs_ax_S.plot(t, st_ZNE_curr_sws_corrected.select(channel="??S")[0].data, c='#1E69A9')
             fs = st_ZNE_curr.select(channel="??N")[0].stats.sampling_rate
             for i in range(len(self.event_station_win_idxs[station]['win_start_idxs'])):
                 wfs_ax_N.axvline(x = self.event_station_win_idxs[station]['win_start_idxs'][i] / fs, c='k', alpha=0.25)
@@ -1067,9 +1072,13 @@ class create_splitting_object:
             wfs_ax_Z.set_xlim(np.min(t), np.max(t))
             wfs_ax_N.set_xlim(np.min(t), np.max(t))
             wfs_ax_E.set_xlim(np.min(t), np.max(t))
+            wfs_ax_F.set_xlim(np.min(t), np.max(t))
+            wfs_ax_S.set_xlim(np.min(t), np.max(t))
             wfs_ax_Z.set_ylim(-1.1*max_amp, 1.1*max_amp)
             wfs_ax_N.set_ylim(-1.1*max_amp, 1.1*max_amp)
             wfs_ax_E.set_ylim(-1.1*max_amp, 1.1*max_amp)
+            wfs_ax_F.set_ylim(-1.1*max_amp, 1.1*max_amp)
+            wfs_ax_S.set_ylim(-1.1*max_amp, 1.1*max_amp)
             # Uncorr NE:
             ne_uncorr_ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data, c='k')
             ne_uncorr_ax.set_xlim(-1.1*max_amp, 1.1*max_amp)
@@ -1083,7 +1092,8 @@ class create_splitting_object:
             # phi - dt space:
             Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
             Z = self.phi_dt_grid_average[station]
-            phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
+            # phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
+            phi_dt_ax.contourf(X, Y, Z, levels=20, cmap="magma")
             phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g')
 
             # Add clustering data if available:
@@ -1122,10 +1132,12 @@ class create_splitting_object:
             text_ax.set_ylim(-10,2)
 
             # And do some plot labelling:
-            wfs_ax_E.set_xlabel("Time (s)")
             wfs_ax_Z.set_ylabel("Z amp.")
             wfs_ax_N.set_ylabel("N amp.")
             wfs_ax_E.set_ylabel("E amp.")
+            wfs_ax_F.set_ylabel("F amp.")
+            wfs_ax_S.set_ylabel("S amp.")
+            wfs_ax_S.set_xlabel("Time (s)")
             ne_uncorr_ax.set_xlabel('E')
             ne_uncorr_ax.set_ylabel('N')
             ne_corr_ax.set_xlabel('E')
