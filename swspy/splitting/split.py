@@ -52,7 +52,9 @@ def _rotate_LQT_to_BPA(st_LQT, back_azi):
     """Function to rotate LQT coords into BPA propagation coords, as in Walsh et al. (2013). Requires: st_LQT - stream with traces for 
     z,r,t components; back_azi - back azimuth angle from reciever to event in degrees from north.
     Note: L is equivient to B. 
-    Note: Only works for a single station, as only supply a single back azimuth."""
+    Note: Only works for a single station, as only supply a single back azimuth.
+    Note: Artifically orients P to North. Actual source polarisation is found later in the script.
+    """
     # Rotate LQT to BPA:
     st_BPA = st_LQT.copy()
     # Convert back-azimuth to radians:
