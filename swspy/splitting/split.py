@@ -118,6 +118,29 @@ def _rotate_QT_comps(data_arr_Q, data_arr_T, rot_angle_rad):
     return data_arr_Q_rot, data_arr_T_rot
 
 
+def _find_src_pol_rel_to_y(x, y):
+    """Function to find source polarisation angle relative to clockwise from y.
+    Returns angle in degrees and associated error."""
+    # Calculate eigenvalues and vectors:
+    xy_arr = np.vstack((x, y))
+    lambdas_unsort, eigvecs_unsort = np.linalg.eig(np.cov(xy_arr))
+    
+    # Find angle associated with max. eigenvector:
+    max_eigvec = eigvecs_unsort[:,np.argmax(lambdas_unsort)]
+    pol_deg = np.rad2deg( np.arctan2(max_eigvec[0], max_eigvec[1]) )
+    # And limit to be between 0 to 180:
+    if pol_deg < 0:
+        pol_deg = pol_deg + 180.
+    elif pol_deg > 180.:
+        pol_deg = pol_deg - 180.
+    
+    # And calculate approx. error in result:
+    # (Based on ratio of orthogonal eigenvalue magnitudes)
+    pol_deg_err = pol_deg * ( np.min(lambdas_unsort) / np.max(lambdas_unsort) )
+        
+    return pol_deg, pol_deg_err
+
+
 def _get_ray_back_azi_and_inc_from_nonlinloc(nonlinloc_hyp_data, station):
     """Function to get ray back azimuth and inclination from nonlinloc hyp data object."""
     ray_back_azi = nonlinloc_hyp_data.phase_data[station]['S']['SAzim'] + 180.
@@ -850,7 +873,7 @@ class create_splitting_object:
             sys.exit()
 
         # Create datastores:
-        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
+        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'src_pol': [], 'src_pol_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
         if return_clusters_data:
             self.clustering_info = {}
         self.phi_dt_grid_average = {}
@@ -896,7 +919,7 @@ class create_splitting_object:
             except:
                 print("Warning: Q and/or T components not found. Skipping this event-receiver observation.")
                 continue
-            del st_ZNE_curr, st_LQT_curr
+            del st_LQT_curr #st_ZNE_curr, st_LQT_curr
             gc.collect()
 
             # 2. Get horizontal channels and trim to pick:
@@ -949,7 +972,20 @@ class create_splitting_object:
                 # If didn't cluster, skip station:
                 continue
 
-            # 7. Calculate Wustefeld et al. (2010) quality factor:
+            # 7. And calculate source polarisation:
+            # Get wfs:
+            st_ZNE_curr = self.st.select(station=station).copy()
+            st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, opt_phi, opt_lag, back_azi, event_inclin_angle_at_station, return_BPA=True)
+            # And find src pol angle relative to fast direction:
+            fast_curr_t_shifted = np.roll(st_ZNE_curr_sws_corrected.select(channel="??F")[0].data, 
+                                            int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
+            slow_curr_t_shifted = np.roll(st_ZNE_curr_sws_corrected.select(channel="??S")[0].data, 
+                                            -int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
+            src_pol_deg, src_pol_deg_err = _find_src_pol_rel_to_y(slow_curr_t_shifted, fast_curr_t_shifted)
+            del st_ZNE_curr, st_ZNE_curr_sws_corrected, fast_curr_t_shifted, slow_curr_t_shifted
+            gc.collect()
+
+            # 8. Calculate Wustefeld et al. (2010) quality factor:
             # (For automated approach)
             # (Only if sws_method = "EV_and_XC")
             if self.sws_method == "EV_and_XC":
@@ -960,7 +996,7 @@ class create_splitting_object:
             # ?. Rotate output phi back into angle relative to N:
             # opt_phi_from_N = self._rot_phi_from_sws_coords_to_deg_from_N(opt_phi, back_azi)
 
-            # 8. And append data to overall datastore:
+            # 9. And append data to overall datastore:
             # Find ray path data to output:
             if self.nonlinloc_event_path:
                 # If nonlinloc supplied data:
@@ -975,7 +1011,7 @@ class create_splitting_object:
                 ray_back_azi = np.nan
                 ray_inc_at_station = np.nan
             # And append data to result df:
-            df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'Q_w' : [Q_w], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
+            df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'src_pol': [src_pol_deg], 'src_pol_err': [src_pol_deg_err], 'Q_w' : [Q_w], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
             self.sws_result_df = self.sws_result_df.append(df_tmp)
             try:
                 opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
@@ -1014,6 +1050,8 @@ class create_splitting_object:
                 dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
                 phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
                 dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
+                src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol'])
+                src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_err'])
                 Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
             except TypeError:
                 # If cannot get parameters becuase splitting clustering failed, skip station:
@@ -1125,11 +1163,12 @@ class create_splitting_object:
             # Add text:
             text_ax.text(0,0,"Event origin time : \n"+self.origin_time.strftime("%Y-%m-%dT%H:%M:%SZ"), fontsize='small')
             text_ax.text(0,-1,"Station : "+station, fontsize='small')
-            text_ax.text(0,-2,"$\phi$ : "+str(phi_curr)+"$^o$"+" +/-"+str(phi_err_curr)+"$^o$", fontsize='small')
-            text_ax.text(0,-3,"$\delta$ $t$ : "+str(dt_curr)+" +/-"+str(round(dt_err_curr, 5))+" $s$", fontsize='small')
-            text_ax.text(0,-4,"Coord. sys. : "+self.coord_system, fontsize='small')
+            text_ax.text(0,-2,"$\delta$ $t$ : "+str(dt_curr)+" +/-"+str(round(dt_err_curr, 5))+" $s$", fontsize='small')
+            text_ax.text(0,-3,"$\phi$ : "+str(phi_curr)+"$^o$"+" +/-"+str(phi_err_curr)+"$^o$", fontsize='small')
+            text_ax.text(0,-4,''.join(("src_pol: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
+            text_ax.text(0,-5,"Coord. sys. : "+self.coord_system, fontsize='small')
             if Q_w_curr <= 1.1:
-                text_ax.text(0,-5,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
+                text_ax.text(0,-6,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
             text_ax.set_xlim(-2,10)
             text_ax.set_ylim(-10,2)
 
@@ -1161,6 +1200,10 @@ class create_splitting_object:
     def save_result(self, outdir=os.getcwd()):
         """Function to save output. Output is a csv file with all the splitting data for the event, 
         for all stations. Saves result as <event_uid>, to <outdir>."""
+        # Create outdir, if doesn't exist:
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
+        # ANd write data to file:
         fname_out = os.path.join(outdir, ''.join((self.event_uid, "_sws_result.csv")))
         self.sws_result_df.to_csv(fname_out, index=False)
         print("Saved sws result to:", fname_out)
@@ -1169,6 +1212,9 @@ class create_splitting_object:
     def save_wfs(self, outdir=os.getcwd()):
         """Function to save waveforms outputs. Outputs are unccorrected and corrected waveforms for 
         all events. Saves result as <event_uid>.mseed, to <outdir>."""
+        # Create outdir, if doesn't exist:
+        if not os.path.exists(outdir):
+            os.makedirs(outdir)
         # Loop over stations, appending data to streams:
         st_uncorr_out = obspy.Stream()
         st_corr_out = obspy.Stream()
