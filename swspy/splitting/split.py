@@ -151,8 +151,8 @@ def _get_ray_back_azi_and_inc_from_nonlinloc(nonlinloc_hyp_data, station):
     return ray_back_azi, ray_inc_at_station
 
 
-def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_station, return_BPA=False, 
-                        return_FS=True):
+def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_station, return_BPA=False,
+                        src_pol=0., return_FS=True):
     """
     Function to remove SWS from ZNE data for a single station.
     Note: Consistency in this function with sws measurement. Uses T in x-direction and Q in y direction 
@@ -173,6 +173,9 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
     return_BPA : bool
         If True, will return obspy stream with Z,N,E and B,P,A channels (as in 
         Walsh (2013)). Optional. Default = False.
+    src_pol : float
+        If <return_BPA> = True, then uses src_pol to calculate the polarisiation and 
+        null (P,A) vectors.
     return_FS : bool
         If True, will return obspy stream with F (fast) and S (slow) channels 
         also included. Optional. Default = True.
@@ -228,14 +231,20 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         tr_tmp = st_BPA_corr.select(channel="??L")[0]
         tr_tmp.stats.channel = "".join((chan_prefixes, "B"))
         st_ZNE_corr.append(tr_tmp)
+        # Calculate P and A channels:
+        # (Note: P is actually not P, but oriented to N if using current ZNE projection,
+        # therefore need to rotate P,A clockwise by src_pol deg with respect to N)
+        # Rotate by src pol
+        # st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
+        tr_tmp_P = st_BPA_corr.select(channel="??Q")[0] # (note that P=Q in st_BPA_corr)
+        tr_tmp_A = st_BPA_corr.select(channel="??T")[0] # (note that A=T in st_BPA_corr)
+        tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(tr_tmp_P.data, tr_tmp_A.data, np.deg2rad(src_pol))
         # Append P channel:
-        tr_tmp = st_BPA_corr.select(channel="??Q")[0]
-        tr_tmp.stats.channel = "".join((chan_prefixes, "P"))
-        st_ZNE_corr.append(tr_tmp)
+        tr_tmp_P.stats.channel = "".join((chan_prefixes, "P"))
+        st_ZNE_corr.append(tr_tmp_P)
         # Append A channel:
-        tr_tmp = st_BPA_corr.select(channel="??T")[0]
-        tr_tmp.stats.channel = "".join((chan_prefixes, "A"))
-        st_ZNE_corr.append(tr_tmp)
+        tr_tmp_A.stats.channel = "".join((chan_prefixes, "A"))
+        st_ZNE_corr.append(tr_tmp_A)
     # And remove fast and slow channels, if not wanted:
     if not return_FS:
         st_ZNE_corr.remove(st_ZNE_corr.select(channel="??F")[0])
@@ -832,12 +841,14 @@ class create_splitting_object:
             dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
             phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
             dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
+            src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol'])
+            src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_err'])
             Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
         except TypeError:
             # If cannot get parameters becuase splitting clustering failed, skip station:
             raise CustomError("Cannot get splitting parameters because splitting clustering failed.")
         st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station,
-                                                    return_BPA=True)
+                                                    return_BPA=True, src_pol=src_pol_curr)
 
         return st_ZNE_curr, st_ZNE_curr_sws_corrected
     
@@ -976,7 +987,7 @@ class create_splitting_object:
             # 7. And calculate source polarisation:
             # Get wfs:
             st_ZNE_curr = self.st.select(station=station).copy()
-            st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, opt_phi, opt_lag, back_azi, event_inclin_angle_at_station, return_BPA=True)
+            st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, opt_phi, opt_lag, back_azi, event_inclin_angle_at_station, return_BPA=False)
             # And find src pol angle relative to fast direction:
             fast_curr_t_shifted = np.roll(st_ZNE_curr_sws_corrected.select(channel="??F")[0].data, 
                                             int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
@@ -1067,29 +1078,56 @@ class create_splitting_object:
                 print("Cannot get splitting parameters because splitting clustering failed. Skipping station:", 
                         station)
                 continue
+            # And get unncorrected P and A waveforms:
+            tr_tmp_P = st_ZNE_curr.select(channel="??N")[0].copy()
+            tr_tmp_A = st_ZNE_curr.select(channel="??E")[0].copy()
+            chan_prefixes_tmp = tr_tmp_P.stats.channel[0:2]
+            tr_tmp_P.stats.channel = chan_prefixes_tmp+"P"
+            tr_tmp_A.stats.channel = chan_prefixes_tmp+"A"
+            print(st_ZNE_curr)
+            tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_ZNE_curr.select(channel="??N")[0].data, 
+                                                                st_ZNE_curr.select(channel="??E")[0].data, 
+                                                                np.deg2rad(src_pol_curr))
+            st_ZNE_curr.append(tr_tmp_P)
+            st_ZNE_curr.append(tr_tmp_A)
+            del tr_tmp_P, tr_tmp_A
+            gc.collect()
         
             # Plot data:
             # Setup figure:
-            fig = plt.figure(constrained_layout=True, figsize=(8,6))
+            fig = plt.figure(constrained_layout=True, figsize=(8,8))
             if suppress_direct_plotting:
                 plt.ion()
-            gs = fig.add_gridspec(3, 4)
+            gs = fig.add_gridspec(4, 4) # no. rows, no. cols
             wfs_ax = fig.add_subplot(gs[0:2, 0:2])
             wfs_ax.get_xaxis().set_visible(False)
             wfs_ax.get_yaxis().set_visible(False)
-            # wfs_ax_Z = inset_axes(wfs_ax, width="100%", height="100%")#, bbox_to_anchor=(.7, .5, .3, .5))
-            wfs_ax_Z = wfs_ax.inset_axes([0, 0.8, 1.0, 0.2])#wfs_ax, width="100%", height="30%", loc=1)#, bbox_to_anchor=(.7, .5, .3, .5))
-            wfs_ax_N = wfs_ax.inset_axes([0, 0.6, 1.0, 0.2])#wfs_ax, width="100%", height="30%", loc=2)
-            wfs_ax_E = wfs_ax.inset_axes([0, 0.4, 1.0, 0.2])#wfs_ax, width="100%", height="30%", loc=3)
-            wfs_ax_F = wfs_ax.inset_axes([0, 0.2, 1.0, 0.2])#wfs_ax, width="100%", height="30%", loc=3)
-            wfs_ax_S = wfs_ax.inset_axes([0, 0.0, 1.0, 0.2])#wfs_ax, width="100%", height="30%", loc=3)
-            text_ax = fig.add_subplot(gs[0, 3])
+            wfs_ax_Z = wfs_ax.inset_axes([0, 2/3, 1.0, 1/3])#wfs_ax, width="100%", height="30%", loc=1)#, bbox_to_anchor=(.7, .5, .3, .5))
+            wfs_ax_N = wfs_ax.inset_axes([0, 1/3, 1.0, 1/3])#wfs_ax, width="100%", height="30%", loc=2)
+            wfs_ax_E = wfs_ax.inset_axes([0, 0.0, 1.0, 1/3])#wfs_ax, width="100%", height="30%", loc=3)
+            wfs_ax_Z.get_xaxis().set_visible(False)
+            wfs_ax_N.get_xaxis().set_visible(False)
+            pa_wfs_ax = fig.add_subplot(gs[0:2, 2:4])
+            pa_wfs_ax.get_xaxis().set_visible(False)
+            pa_wfs_ax.get_yaxis().set_visible(False)
+            wfs_ax_P_uncorr = pa_wfs_ax.inset_axes([0, 0.75, 1.0, 0.25])#wfs_ax, width="100%", height="30%", loc=3)
+            wfs_ax_A_uncorr = pa_wfs_ax.inset_axes([0, 0.5, 1.0, 0.25])#wfs_ax, width="100%", height="30%", loc=3)
+            wfs_ax_P_corr = pa_wfs_ax.inset_axes([0, 0.25, 1.0, 0.25])#wfs_ax, width="100%", height="30%", loc=3)
+            wfs_ax_A_corr = pa_wfs_ax.inset_axes([0, 0.0, 1.0, 0.25])#wfs_ax, width="100%", height="30%", loc=3)
+            wfs_ax_P_uncorr.get_xaxis().set_visible(False)
+            wfs_ax_A_uncorr.get_xaxis().set_visible(False)
+            wfs_ax_P_corr.get_xaxis().set_visible(False)
+            text_ax = fig.add_subplot(gs[2, 1])
             text_ax.axis('off')
-            ne_uncorr_ax = fig.add_subplot(gs[2, 0])
-            ne_corr_ax = fig.add_subplot(gs[2, 1])
-            phi_dt_ax = fig.add_subplot(gs[1:3, 2:4])
+            particle_motions_ax = fig.add_subplot(gs[3, 0:2])
+            particle_motions_ax.get_xaxis().set_visible(False)
+            particle_motions_ax.get_yaxis().set_visible(False)
+            ne_uncorr_ax = particle_motions_ax.inset_axes([0, 0, 0.5, 1.0])
+            ne_corr_ax = particle_motions_ax.inset_axes([0.5, 0, 0.5, 1.0])
+            ne_corr_ax.get_yaxis().set_visible(False)
+            phi_dt_ax = fig.add_subplot(gs[2:4, 2:4])
             if self.clustering_info:
-                cluster_results_ax = fig.add_subplot(gs[0, 2])
+                cluster_results_ax = fig.add_subplot(gs[2, 0])
                 cluster_results_ax.get_xaxis().set_visible(False)
                 cluster_results_ax.get_yaxis().set_visible(False)
                 cluster_results_ax_phi = cluster_results_ax.inset_axes([0, 0.5, 1.0, 0.5])
@@ -1104,14 +1142,21 @@ class create_splitting_object:
                 max_amp = np.max(np.abs(st_ZNE_curr.select(channel="??N")[0].data))
             if np.max(np.abs(st_ZNE_curr.select(channel="??E")[0].data)) > max_amp:
                 max_amp = np.max(np.abs(st_ZNE_curr.select(channel="??E")[0].data))
+            if np.max(np.abs(st_ZNE_curr.select(channel="??P")[0].data)) > max_amp:
+                max_amp = np.max(np.abs(st_ZNE_curr.select(channel="??P")[0].data))
+            if np.max(np.abs(st_ZNE_curr.select(channel="??A")[0].data)) > max_amp:
+                max_amp = np.max(np.abs(st_ZNE_curr.select(channel="??A")[0].data))
             wfs_ax_Z.plot(t, st_ZNE_curr.select(channel="??Z")[0].data, c='k')
             wfs_ax_N.plot(t, st_ZNE_curr.select(channel="??N")[0].data, c='k')
             wfs_ax_E.plot(t, st_ZNE_curr.select(channel="??E")[0].data, c='k')
+            wfs_ax_P_uncorr.plot(t, st_ZNE_curr.select(channel="??P")[0].data, c='k')
+            wfs_ax_A_uncorr.plot(t, st_ZNE_curr.select(channel="??A")[0].data, c='k')
             wfs_ax_Z.plot(t, st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data, c='#D73215')
             wfs_ax_N.plot(t, st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='#D73215')
             wfs_ax_E.plot(t, st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, c='#D73215')
-            wfs_ax_F.plot(t, st_ZNE_curr_sws_corrected.select(channel="??F")[0].data, c='#1E69A9')
-            wfs_ax_S.plot(t, st_ZNE_curr_sws_corrected.select(channel="??S")[0].data, c='#1E69A9')
+            wfs_ax_P_corr.plot(t, st_ZNE_curr_sws_corrected.select(channel="??P")[0].data, c='#D73215') #c='#1E69A9')
+            wfs_ax_A_corr.plot(t, st_ZNE_curr_sws_corrected.select(channel="??A")[0].data, c='#D73215') #c='#1E69A9')
+
             fs = st_ZNE_curr.select(channel="??N")[0].stats.sampling_rate
             for i in range(len(self.event_station_win_idxs[station]['win_start_idxs'])):
                 wfs_ax_N.axvline(x = self.event_station_win_idxs[station]['win_start_idxs'][i] / fs, c='k', alpha=0.25)
@@ -1121,13 +1166,17 @@ class create_splitting_object:
             wfs_ax_Z.set_xlim(np.min(t), np.max(t))
             wfs_ax_N.set_xlim(np.min(t), np.max(t))
             wfs_ax_E.set_xlim(np.min(t), np.max(t))
-            wfs_ax_F.set_xlim(np.min(t), np.max(t))
-            wfs_ax_S.set_xlim(np.min(t), np.max(t))
+            wfs_ax_P_uncorr.set_xlim(np.min(t), np.max(t))
+            wfs_ax_A_uncorr.set_xlim(np.min(t), np.max(t))
+            wfs_ax_P_corr.set_xlim(np.min(t), np.max(t))
+            wfs_ax_A_corr.set_xlim(np.min(t), np.max(t))
             wfs_ax_Z.set_ylim(-1.1*max_amp, 1.1*max_amp)
             wfs_ax_N.set_ylim(-1.1*max_amp, 1.1*max_amp)
             wfs_ax_E.set_ylim(-1.1*max_amp, 1.1*max_amp)
-            wfs_ax_F.set_ylim(-1.1*max_amp, 1.1*max_amp)
-            wfs_ax_S.set_ylim(-1.1*max_amp, 1.1*max_amp)
+            wfs_ax_P_uncorr.set_ylim(-1.1*max_amp, 1.1*max_amp)
+            wfs_ax_A_uncorr.set_ylim(-1.1*max_amp, 1.1*max_amp)
+            wfs_ax_P_corr.set_ylim(-1.1*max_amp, 1.1*max_amp)
+            wfs_ax_A_corr.set_ylim(-1.1*max_amp, 1.1*max_amp)
             # Uncorr NE:
             ne_uncorr_ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data, c='k')
             ne_uncorr_ax.set_xlim(-1.1*max_amp, 1.1*max_amp)
@@ -1185,9 +1234,11 @@ class create_splitting_object:
             wfs_ax_Z.set_ylabel("Z amp.")
             wfs_ax_N.set_ylabel("N amp.")
             wfs_ax_E.set_ylabel("E amp.")
-            wfs_ax_F.set_ylabel("F amp.")
-            wfs_ax_S.set_ylabel("S amp.")
-            wfs_ax_S.set_xlabel("Time (s)")
+            wfs_ax_P_uncorr.set_ylabel(''.join(("P amp.\n(", "{0:0.1f}".format(src_pol_curr), "$^o$)")))
+            wfs_ax_A_uncorr.set_ylabel(''.join(("A amp.\n(", "{0:0.1f}".format(src_pol_curr+90.), "$^o$)")))
+            wfs_ax_P_corr.set_ylabel(''.join(("P amp.\n(", "{0:0.1f}".format(src_pol_curr), "$^o$)")))
+            wfs_ax_A_corr.set_ylabel(''.join(("A amp.\n(", "{0:0.1f}".format(src_pol_curr+90.), "$^o$)")))
+            wfs_ax_A_corr.set_xlabel("Time (s)")
             ne_uncorr_ax.set_xlabel('E')
             ne_uncorr_ax.set_ylabel('N')
             ne_corr_ax.set_xlabel('E')
