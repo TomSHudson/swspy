@@ -128,15 +128,16 @@ def _find_src_pol_rel_to_y(x, y):
     # Find angle associated with max. eigenvector:
     max_eigvec = eigvecs_unsort[:,np.argmax(lambdas_unsort)]
     pol_deg = np.rad2deg( np.arctan2(max_eigvec[0], max_eigvec[1]) )
-    # And limit to be between 0 to 180:
-    if pol_deg < 0:
-        pol_deg = pol_deg + 180.
-    elif pol_deg > 180.:
-        pol_deg = pol_deg - 180.
+    # # And limit to be between 0 to 180:
+    # if pol_deg < 0:
+    #     pol_deg = pol_deg + 180.
+    # elif pol_deg >= 180.:
+    #     pol_deg = pol_deg - 180.
     
     # And calculate approx. error in result:
     # (Based on ratio of orthogonal eigenvalue magnitudes)
-    pol_deg_err = pol_deg * ( np.min(lambdas_unsort) / np.max(lambdas_unsort) )
+    # (Approximately a maximum, hence the 180 degree term)
+    pol_deg_err = 180. * ( np.min(lambdas_unsort) / np.max(lambdas_unsort) )
         
     return pol_deg, pol_deg_err
 
@@ -983,9 +984,13 @@ class create_splitting_object:
                                             -int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
             src_pol_deg, src_pol_deg_err = _find_src_pol_rel_to_y(slow_curr_t_shifted, fast_curr_t_shifted)
             # And perform shift from relative to fast-direction to relative to N:
+            # (Note: Only currently valid for ZNE orientation)
             src_pol_deg = opt_phi - src_pol_deg
-            # (Note: Only currently valid for ZNE orientation):
-
+            # And limit to be between 0 to 180:
+            if src_pol_deg < 0:
+                src_pol_deg = src_pol_deg + 180.
+            elif src_pol_deg >= 180.:
+                src_pol_deg = src_pol_deg - 180.
             del st_ZNE_curr, st_ZNE_curr_sws_corrected, fast_curr_t_shifted, slow_curr_t_shifted
             gc.collect()
 
