@@ -982,6 +982,10 @@ class create_splitting_object:
             slow_curr_t_shifted = np.roll(st_ZNE_curr_sws_corrected.select(channel="??S")[0].data, 
                                             -int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
             src_pol_deg, src_pol_deg_err = _find_src_pol_rel_to_y(slow_curr_t_shifted, fast_curr_t_shifted)
+            # And perform shift from relative to fast-direction to relative to N:
+            src_pol_deg = opt_phi - src_pol_deg
+            # (Note: Only currently valid for ZNE orientation):
+
             del st_ZNE_curr, st_ZNE_curr_sws_corrected, fast_curr_t_shifted, slow_curr_t_shifted
             gc.collect()
 
