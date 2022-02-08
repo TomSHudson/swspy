@@ -1084,7 +1084,6 @@ class create_splitting_object:
             chan_prefixes_tmp = tr_tmp_P.stats.channel[0:2]
             tr_tmp_P.stats.channel = chan_prefixes_tmp+"P"
             tr_tmp_A.stats.channel = chan_prefixes_tmp+"A"
-            print(st_ZNE_curr)
             tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_ZNE_curr.select(channel="??N")[0].data, 
                                                                 st_ZNE_curr.select(channel="??E")[0].data, 
                                                                 np.deg2rad(src_pol_curr))
