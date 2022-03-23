@@ -107,7 +107,9 @@ def _rotate_QT_comps(data_arr_Q, data_arr_T, rot_angle_rad):
     degrees clockwise from Q.
     """
     # Convert angle from counter-clockwise from x to clockwise:
-    theta_rot = -rot_angle_rad #-1. * (rot_angle_rad + (np.pi / 2. ))
+    ###!!!theta_rot = -rot_angle_rad #-1. * (rot_angle_rad + (np.pi / 2. ))
+    theta_rot = -1. * (rot_angle_rad + (np.pi / 2. ))
+
     # Define rotation matrix:
     rot_matrix = np.array([[np.cos(theta_rot), -np.sin(theta_rot)], [np.sin(theta_rot), np.cos(theta_rot)]])
     # And perform the rotation:
@@ -115,6 +117,7 @@ def _rotate_QT_comps(data_arr_Q, data_arr_T, rot_angle_rad):
     vec_rot = np.dot(rot_matrix, vec)
     data_arr_Q_rot = np.array(vec_rot[1,:])
     data_arr_T_rot = np.array(vec_rot[0,:])
+
     return data_arr_Q_rot, data_arr_T_rot
 
 
