@@ -1115,10 +1115,10 @@ class create_splitting_object:
         
             # Plot data:
             # Setup figure:
-            fig = plt.figure(constrained_layout=True, figsize=(8,8))
+            fig = plt.figure(constrained_layout=True, figsize=(20,16))
             if suppress_direct_plotting:
                 plt.ion()
-            gs = fig.add_gridspec(4, 4) # no. rows, no. cols
+            gs = fig.add_gridspec(4, 5) # no. rows, no. cols
             wfs_ax = fig.add_subplot(gs[0:2, 0:2])
             wfs_ax.get_xaxis().set_visible(False)
             wfs_ax.get_yaxis().set_visible(False)
@@ -1127,7 +1127,7 @@ class create_splitting_object:
             wfs_ax_E = wfs_ax.inset_axes([0, 0.0, 1.0, 1/3])#wfs_ax, width="100%", height="30%", loc=3)
             wfs_ax_Z.get_xaxis().set_visible(False)
             wfs_ax_N.get_xaxis().set_visible(False)
-            pa_wfs_ax = fig.add_subplot(gs[0:2, 2:4])
+            pa_wfs_ax = fig.add_subplot(gs[0:2, 3:5])
             pa_wfs_ax.get_xaxis().set_visible(False)
             pa_wfs_ax.get_yaxis().set_visible(False)
             wfs_ax_P_uncorr = pa_wfs_ax.inset_axes([0, 0.75, 1.0, 0.25])#wfs_ax, width="100%", height="30%", loc=3)
@@ -1137,7 +1137,13 @@ class create_splitting_object:
             wfs_ax_P_uncorr.get_xaxis().set_visible(False)
             wfs_ax_A_uncorr.get_xaxis().set_visible(False)
             wfs_ax_P_corr.get_xaxis().set_visible(False)
-            text_ax = fig.add_subplot(gs[2, 1])
+            fs_before_after_ax = fig.add_subplot(gs[2, 0:2])
+            fs_before_after_ax.get_xaxis().set_visible(False)
+            fs_before_after_ax.get_yaxis().set_visible(False)
+            fs_before_ax = fs_before_after_ax.inset_axes([0, 0, 0.5, 1.0])
+            fs_after_ax = fs_before_after_ax.inset_axes([0.5, 0, 0.5, 1.0])
+            fs_after_ax.get_yaxis().set_visible(False)
+            text_ax = fig.add_subplot(gs[2, 2])
             text_ax.axis('off')
             particle_motions_ax = fig.add_subplot(gs[3, 0:2])
             particle_motions_ax.get_xaxis().set_visible(False)
@@ -1145,9 +1151,9 @@ class create_splitting_object:
             ne_uncorr_ax = particle_motions_ax.inset_axes([0, 0, 0.5, 1.0])
             ne_corr_ax = particle_motions_ax.inset_axes([0.5, 0, 0.5, 1.0])
             ne_corr_ax.get_yaxis().set_visible(False)
-            phi_dt_ax = fig.add_subplot(gs[2:4, 2:4])
+            phi_dt_ax = fig.add_subplot(gs[2:4, 3:5])
             if self.clustering_info:
-                cluster_results_ax = fig.add_subplot(gs[2, 0])
+                cluster_results_ax = fig.add_subplot(gs[3, 2])
                 cluster_results_ax.get_xaxis().set_visible(False)
                 cluster_results_ax.get_yaxis().set_visible(False)
                 cluster_results_ax_phi = cluster_results_ax.inset_axes([0, 0.5, 1.0, 0.5])
@@ -1166,6 +1172,16 @@ class create_splitting_object:
                 max_amp = np.max(np.abs(st_ZNE_curr.select(channel="??P")[0].data))
             if np.max(np.abs(st_ZNE_curr.select(channel="??A")[0].data)) > max_amp:
                 max_amp = np.max(np.abs(st_ZNE_curr.select(channel="??A")[0].data))
+            if np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data)) > max_amp:
+                max_amp = np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data))
+            if np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??N")[0].data)) > max_amp:
+                max_amp = np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??N")[0].data))
+            if np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data)) > max_amp:
+                max_amp = np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data))
+            if np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??P")[0].data)) > max_amp:
+                max_amp = np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??P")[0].data))
+            if np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??A")[0].data)) > max_amp:
+                max_amp = np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??A")[0].data))
             wfs_ax_Z.plot(t, st_ZNE_curr.select(channel="??Z")[0].data, c='k')
             wfs_ax_N.plot(t, st_ZNE_curr.select(channel="??N")[0].data, c='k')
             wfs_ax_E.plot(t, st_ZNE_curr.select(channel="??E")[0].data, c='k')
@@ -1176,7 +1192,6 @@ class create_splitting_object:
             wfs_ax_E.plot(t, st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, c='#D73215')
             wfs_ax_P_corr.plot(t, st_ZNE_curr_sws_corrected.select(channel="??P")[0].data, c='#D73215') #c='#1E69A9')
             wfs_ax_A_corr.plot(t, st_ZNE_curr_sws_corrected.select(channel="??A")[0].data, c='#D73215') #c='#1E69A9')
-
             fs = st_ZNE_curr.select(channel="??N")[0].stats.sampling_rate
             for i in range(len(self.event_station_win_idxs[station]['win_start_idxs'])):
                 wfs_ax_N.axvline(x = self.event_station_win_idxs[station]['win_start_idxs'][i] / fs, c='k', alpha=0.25)
@@ -1197,6 +1212,20 @@ class create_splitting_object:
             wfs_ax_A_uncorr.set_ylim(-1.1*max_amp, 1.1*max_amp)
             wfs_ax_P_corr.set_ylim(-1.1*max_amp, 1.1*max_amp)
             wfs_ax_A_corr.set_ylim(-1.1*max_amp, 1.1*max_amp)
+
+            # Fast and slow, pre and post correction:
+            fs_start_end_times = [self.event_station_win_idxs[station]['win_start_idxs'][-1] / fs,
+                                    self.event_station_win_idxs[station]['win_end_idxs'][0] / fs]
+            fs_before_ax.plot(t, st_ZNE_curr_sws_corrected.select(channel="??F")[0].data, c='k')
+            fs_before_ax.plot(t, st_ZNE_curr_sws_corrected.select(channel="??S")[0].data, c='k', ls='--')
+            fs_after_ax.plot(t, np.roll(st_ZNE_curr_sws_corrected.select(channel="??F")[0].data, int(fs * dt_curr/2)), c='k')
+            fs_after_ax.plot(t, np.roll(st_ZNE_curr_sws_corrected.select(channel="??S")[0].data, -int(fs * dt_curr/2)), c='k', ls='--')
+            fs_before_ax.set_xlim(fs_start_end_times)
+            fs_after_ax.set_xlim(fs_start_end_times)
+            fs_before_ax.set_xlabel("Time (s)")
+            fs_after_ax.set_xlabel("Time (s)")
+            fs_before_ax.set_ylabel("F/S amp.")
+
             # Uncorr NE:
             ne_uncorr_ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data, c='k')
             ne_uncorr_ax.set_xlim(-1.1*max_amp, 1.1*max_amp)
