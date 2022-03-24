@@ -59,6 +59,8 @@ def _rotate_LQT_to_BPA(st_LQT, back_azi):
     st_BPA = st_LQT.copy()
     # Convert back-azimuth to radians:
     back_azi_rad = back_azi * np.pi / 180.
+    ###???# Rotate clockwise rather than anti-clockwise:
+    ###???back_azi_rad = -back_azi_rad
     # Define rotation matrix (for counter-clockwise rotation):
     rot_matrix = np.array([[np.cos(back_azi_rad), -np.sin(back_azi_rad)], [np.sin(back_azi_rad), np.cos(back_azi_rad)]])
     # And perform the rotation (y = Q, P in this case, x = T, A in this case):
@@ -107,8 +109,8 @@ def _rotate_QT_comps(data_arr_Q, data_arr_T, rot_angle_rad):
     degrees clockwise from Q.
     """
     # Convert angle from counter-clockwise from x to clockwise:
-    ###!!!theta_rot = -rot_angle_rad #-1. * (rot_angle_rad + (np.pi / 2. ))
-    theta_rot = -1. * (rot_angle_rad + (np.pi / 2. ))
+    theta_rot = -rot_angle_rad #-1. * (rot_angle_rad + (np.pi / 2. ))
+    ###!!!theta_rot = -1. * (rot_angle_rad + (np.pi / 2. ))
 
     # Define rotation matrix:
     rot_matrix = np.array([[np.cos(theta_rot), -np.sin(theta_rot)], [np.sin(theta_rot), np.cos(theta_rot)]])
@@ -141,7 +143,7 @@ def _find_src_pol_rel_to_y(x, y):
     # (Based on ratio of orthogonal eigenvalue magnitudes)
     # (Approximately a maximum, hence the 180 degree term)
     pol_deg_err = 180. * ( np.min(lambdas_unsort) / np.max(lambdas_unsort) )
-        
+
     return pol_deg, pol_deg_err
 
 
@@ -198,7 +200,8 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         sys.exit()
     # Rotate ZNE stream into LQT then BPA propagation coords:
     st_LQT_uncorr = _rotate_ZNE_to_LQT(st_ZNE_uncorr, back_azi, event_inclin_angle_at_station)
-    st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
+    ###!!!st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
+    st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, 0)
     # Perform SWS correction:
     x_in, y_in = st_BPA_uncorr.select(channel="??Q")[0].data, st_LQT_uncorr.select(channel="??T")[0].data
     fs = st_BPA_uncorr.select(channel="??T")[0].stats.sampling_rate
@@ -226,7 +229,8 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
     st_BPA_corr.select(channel="??Q")[0].data = x 
     st_BPA_corr.select(channel="??T")[0].data = y
     # And rotate back into ZNE coords:
-    st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr, back_azi)
+    ###!!!st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr, back_azi)
+    st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr, 0)
     st_ZNE_corr = _rotate_LQT_to_ZNE(st_LQT_corr, back_azi, event_inclin_angle_at_station)
     # And append BPA channels if specified:
     if return_BPA:
@@ -241,7 +245,9 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         # st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
         tr_tmp_P = st_BPA_corr.select(channel="??Q")[0] # (note that P=Q in st_BPA_corr)
         tr_tmp_A = st_BPA_corr.select(channel="??T")[0] # (note that A=T in st_BPA_corr)
-        tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(tr_tmp_P.data, tr_tmp_A.data, np.deg2rad(src_pol))
+        ###!!!tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(tr_tmp_P.data, tr_tmp_A.data, np.deg2rad(src_pol))
+        tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_ZNE_corr.select(channel="??N")[0].data, 
+                                                -st_ZNE_corr.select(channel="??E")[0].data, np.deg2rad(src_pol))
         # Append P channel:
         tr_tmp_P.stats.channel = "".join((chan_prefixes, "P"))
         st_ZNE_corr.append(tr_tmp_P)
@@ -251,7 +257,7 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
     # And remove fast and slow channels, if not wanted:
     if not return_FS:
         st_ZNE_corr.remove(st_ZNE_corr.select(channel="??F")[0])
-        t_ZNE_corr.remove(st_ZNE_corr.select(channel="??S")[0])
+        st_ZNE_corr.remove(st_ZNE_corr.select(channel="??S")[0])
 
     # And tidy:
     del st_LQT_uncorr, st_BPA_uncorr, st_LQT_corr, st_BPA_corr
@@ -341,8 +347,9 @@ def _phi_dt_grid_search_EV(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs,
 
                 # Rotate QT waveforms by angle:
                 # (Note: Explicit rotation specification as wrapped in numba):
-                # Convert angle from counter-clockwise from x to clockwise:
-                theta_rot = -angle_shift_rad_curr
+                theta_rot = angle_shift_rad_curr
+                ###!!!# Convert angle from counter-clockwise from x to clockwise:
+                ###!!!theta_rot = -angle_shift_rad_curr
                 # Perform the rotation explicitely (avoiding creating additional arrays):
                 # (Q = y, T = x)
                 rot_T_curr = (data_arr_T[start_win_idx:end_win_idx] * np.cos(theta_rot)) - (data_arr_Q[start_win_idx:end_win_idx] * np.sin(theta_rot))
@@ -929,6 +936,7 @@ class create_splitting_object:
             # And rotate into emerging ray coord system, LQT:
             st_LQT_curr = _rotate_ZNE_to_LQT(st_ZNE_curr, back_azi, event_inclin_angle_at_station)
             # And rotate into propagation coordinate system (as in Walsh et al. (2013)), BPA:
+            # (Note rotation by back_azi, as want P to be oriented to North for splitting angle calculation)
             try:
                 st_BPA_curr = _rotate_LQT_to_BPA(st_LQT_curr, back_azi)
             except:
@@ -937,12 +945,15 @@ class create_splitting_object:
             del st_LQT_curr #st_ZNE_curr, st_LQT_curr
             gc.collect()
 
+
             # 2. Get horizontal channels and trim to pick:
             if self.nonlinloc_event_path:
                 arrival_time_curr = self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time']
             else:
                 arrival_time_curr = self.S_phase_arrival_times[station_idx_tmp]
             st_BPA_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
+                                endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
+            st_ZNE_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
                                 endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
             try:
                 tr_P = st_BPA_curr.select(station=station, channel="??Q")[0]
@@ -989,17 +1000,24 @@ class create_splitting_object:
 
             # 7. And calculate source polarisation:
             # Get wfs:
-            st_ZNE_curr = self.st.select(station=station).copy()
+            # st_ZNE_curr = self.st.select(station=station).copy()
             st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, opt_phi, opt_lag, back_azi, event_inclin_angle_at_station, return_BPA=False)
-            # And find src pol angle relative to fast direction:
-            fast_curr_t_shifted = np.roll(st_ZNE_curr_sws_corrected.select(channel="??F")[0].data, 
-                                            int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
-            slow_curr_t_shifted = np.roll(st_ZNE_curr_sws_corrected.select(channel="??S")[0].data, 
-                                            -int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
+            # # And find src pol angle relative to fast direction (Using FS):
+            # fast_curr_t_shifted = np.roll(st_ZNE_curr_sws_corrected.select(channel="??F")[0].data, 
+            #                                 int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
+            # slow_curr_t_shifted = np.roll(st_ZNE_curr_sws_corrected.select(channel="??S")[0].data, 
+            #                                 -int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
+            # src_pol_deg, src_pol_deg_err = _find_src_pol_rel_to_y(slow_curr_t_shifted, fast_curr_t_shifted)
+            # # And perform shift from relative to fast-direction to relative to N:
+            # # (Note: Only currently valid for ZNE orientation)
+            # if opt_phi >= 0:
+            #     src_pol_deg = opt_phi - src_pol_deg
+            # else:
+            #     src_pol_deg = 360 - (opt_phi + src_pol_deg)
+            # And find src pol angle relative to fast direction (Using NE):
+            fast_curr_t_shifted = st_ZNE_curr_sws_corrected.select(channel="??N")[0].data
+            slow_curr_t_shifted = st_ZNE_curr_sws_corrected.select(channel="??E")[0].data
             src_pol_deg, src_pol_deg_err = _find_src_pol_rel_to_y(slow_curr_t_shifted, fast_curr_t_shifted)
-            # And perform shift from relative to fast-direction to relative to N:
-            # (Note: Only currently valid for ZNE orientation)
-            src_pol_deg = opt_phi - src_pol_deg
             # And limit to be between 0 to 180:
             if src_pol_deg < 0:
                 src_pol_deg = src_pol_deg + 180.
@@ -1088,7 +1106,7 @@ class create_splitting_object:
             tr_tmp_P.stats.channel = chan_prefixes_tmp+"P"
             tr_tmp_A.stats.channel = chan_prefixes_tmp+"A"
             tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_ZNE_curr.select(channel="??N")[0].data, 
-                                                                st_ZNE_curr.select(channel="??E")[0].data, 
+                                                                -st_ZNE_curr.select(channel="??E")[0].data, 
                                                                 np.deg2rad(src_pol_curr))
             st_ZNE_curr.append(tr_tmp_P)
             st_ZNE_curr.append(tr_tmp_A)
