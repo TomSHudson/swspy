@@ -16,7 +16,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import pandas as pd 
-from numba import jit
+from numba import jit, prange, set_num_threads
 from scipy import stats, interpolate
 from sklearn import cluster
 from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering
@@ -27,6 +27,7 @@ import glob
 import subprocess
 import gc
 from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
+import time 
 
 
 class CustomError(Exception):
@@ -329,59 +330,14 @@ def ftest(data, dof, alpha=0.05, k=2, min_max='min'):
     return conf_bound
 
 
-
 @jit(nopython=True)
-def _phi_dt_grid_search_EV(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, grid_search_results_all_win_EV):
-    """Function to do numba accelerated grid search of phis and dts."""
-
-    # Loop over start and end windows:
-    for a in range(n_win):
-        start_win_idx = win_start_idxs[a]
-        for b in range(n_win):
-            end_win_idx = win_end_idxs[b]
-            grid_search_idx = int(n_win*a + b)
-
-            # Loop over angles:
-            for j in range(n_angle_steps):
-                angle_shift_rad_curr = ((j * rotate_step_deg) - 90.) * np.pi / 180. # (Note: -90 as should loop between -90 and 90 (see phi_labels))
-
-                # Rotate QT waveforms by angle:
-                # (Note: Explicit rotation specification as wrapped in numba):
-                theta_rot = angle_shift_rad_curr
-                ###!!!# Convert angle from counter-clockwise from x to clockwise:
-                ###!!!theta_rot = -angle_shift_rad_curr
-                # Perform the rotation explicitely (avoiding creating additional arrays):
-                # (Q = y, T = x)
-                rot_T_curr = (data_arr_T[start_win_idx:end_win_idx] * np.cos(theta_rot)) - (data_arr_Q[start_win_idx:end_win_idx] * np.sin(theta_rot))
-                rot_Q_curr = (data_arr_T[start_win_idx:end_win_idx] * np.sin(theta_rot)) + (data_arr_Q[start_win_idx:end_win_idx] * np.cos(theta_rot))
-
-                # Loop over time shifts:
-                for i in range(n_t_steps):
-                    t_samp_shift_curr = int( i ) # (note: the minus sign as lag so need to shift back, if assume slow direction aligned with T)
-                    # Time-shift data (note: + dt for fast dir (rot Q), and -dt for slow dir (rot T)):
-                    rolled_rot_Q_curr = np.roll(rot_Q_curr, +int(t_samp_shift_curr/2.))
-                    rolled_rot_T_curr = np.roll(rot_T_curr, -int(t_samp_shift_curr/2.))
-
-                    # Calculate eigenvalues:
-                    xy_arr = np.vstack((rolled_rot_T_curr, rolled_rot_Q_curr))
-                    lambdas_unsort = np.linalg.eigvalsh(np.cov(xy_arr))
-                    lambdas = np.sort(lambdas_unsort)
-
-                    # And save eigenvalue results to datastore:
-                    # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable):
-                    grid_search_results_all_win_EV[grid_search_idx,i,j] = lambdas[0] / lambdas[1] 
-   
-    return grid_search_results_all_win_EV
-
-
-@jit(nopython=True)
-def _phi_dt_grid_search_EV_and_XC(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
+def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                     grid_search_results_all_win_EV, grid_search_results_all_win_XC):
     """Function to do numba accelerated grid search of phis and dts.
-    Calculates splitting via eigenvalue (EV) and cross-correlation (XC) methods.
+    Calculates splitting via eigenvalue (EV) (and also cross-correlation (XC) methods 
+    if <grid_search_results_all_win_XC> is specified).
     Note: Currently takes absolute values of rotated, time-shifted waveforms to 
     cross-correlate."""
-
     # Loop over start and end windows:
     for a in range(n_win):
         start_win_idx = win_start_idxs[a]
@@ -421,12 +377,14 @@ def _phi_dt_grid_search_EV_and_XC(data_arr_Q, data_arr_T, win_start_idxs, win_en
                     grid_search_results_all_win_EV[grid_search_idx,i,j] = lambdas[0] / lambdas[1] 
 
                     # ================== Calculate splitting parameters via. XC method ==================
-                    # Calculate XC coeffecient and save to array:
-                    # if np.std(rolled_rot_Q_curr)  * np.std(rolled_rot_T_curr) > 0. and len(rolled_rot_T_curr) > 0:
+                    # if len(grid_search_results_all_win_XC) > 0:
+                        # Calculate XC coeffecient and save to array:
+                        # if np.std(rolled_rot_Q_curr)  * np.std(rolled_rot_T_curr) > 0. and len(rolled_rot_T_curr) > 0:
                     grid_search_results_all_win_XC[grid_search_idx,i,j] = np.sum( np.abs(rolled_rot_Q_curr * rolled_rot_T_curr) / (np.std(rolled_rot_Q_curr) * 
                                                                 np.std(rolled_rot_T_curr))) / len(rolled_rot_T_curr)
 
-    return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
+        return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
+
 
 
 class create_splitting_object:
@@ -602,20 +560,18 @@ class create_splitting_object:
         # if 'grid_search_results_all_win_XC' in globals():
         #     del grid_search_results_all_win_XC
         grid_search_results_all_win_EV = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
-        if sws_method == "EV_and_XC":
-            grid_search_results_all_win_XC = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
+        # if sws_method == "EV_and_XC":
+        grid_search_results_all_win_XC = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
         lags_labels = np.arange(0., n_t_steps, 1) / fs 
         phis_labels = np.arange(-90, 90 + rotate_step_deg, rotate_step_deg)
 
         # Perform grid search:
         # (note that numba accelerated, hence why function outside class)
-        if sws_method == "EV":
-            grid_search_results_all_win_EV = _phi_dt_grid_search_EV(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, 
-                                                        n_win, fs, rotate_step_deg, grid_search_results_all_win_EV)
-        elif sws_method == "EV_and_XC":
-            grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search_EV_and_XC(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, 
-                                                                                                            n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
-                                                                                                            grid_search_results_all_win_EV, grid_search_results_all_win_XC)
+        num_threads = 4
+        set_num_threads(int(num_threads))
+        grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, 
+                                                                                                        n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
+                                                                                                        grid_search_results_all_win_EV, grid_search_results_all_win_XC)
 
         # And return results:
         if sws_method == "EV":
@@ -980,7 +936,6 @@ class create_splitting_object:
                     # And check that returned values without issues:
                     print("Warning: NaN error in _calc_splitting_eig_val_method(). Skipping station:", station)
                     continue
-
             # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable):
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
@@ -1032,7 +987,7 @@ class create_splitting_object:
             if self.sws_method == "EV_and_XC":
                 Q_w = self._calc_Q_w(opt_phi, opt_lag, grid_search_results_all_win_XC, tr_A, method="dbscan")
             else:
-                Q_w = np.nan
+                Q_w = np.nan            
 
             # ?. Rotate output phi back into angle relative to N:
             # opt_phi_from_N = self._rot_phi_from_sws_coords_to_deg_from_N(opt_phi, back_azi)
