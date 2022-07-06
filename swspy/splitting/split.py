@@ -58,6 +58,11 @@ def _rotate_LQT_to_BPA(st_LQT, back_azi):
     """
     # Rotate LQT to BPA:
     st_BPA = st_LQT.copy()
+    # And rename channels:
+    chan_prefixes = st_LQT.select(channel="??L")[0].stats.channel[0:2]
+    st_BPA.select(channel="??L")[0].stats.channel = ''.join((chan_prefixes,"B"))
+    st_BPA.select(channel="??Q")[0].stats.channel = ''.join((chan_prefixes,"P"))
+    st_BPA.select(channel="??T")[0].stats.channel = ''.join((chan_prefixes,"A"))
     # Convert back-azimuth to radians:
     back_azi_rad = back_azi * np.pi / 180.
     ###???# Rotate clockwise rather than anti-clockwise:
@@ -70,8 +75,9 @@ def _rotate_LQT_to_BPA(st_LQT, back_azi):
     except IndexError:
         raise ValueError("Q and/or T component in <st_LQT> doesn't exist.")
     vec_rot = np.dot(rot_matrix, vec)
-    st_BPA.select(channel="??T")[0].data = np.array(vec_rot[0,:])
-    st_BPA.select(channel="??Q")[0].data = np.array(vec_rot[1,:])
+    # And write out data:
+    st_BPA.select(channel="??A")[0].data = np.array(vec_rot[0,:])
+    st_BPA.select(channel="??P")[0].data = np.array(vec_rot[1,:])
     return st_BPA
 
 
@@ -98,8 +104,18 @@ def _rotate_BPA_to_LQT(st_BPA, back_azi):
     z,r,t components; back_azi - back azimuth angle from reciever to event in degrees from north.
     Note: L is equivient to B. 
     Note: Only works for a single station, as only supply a single back azimuth."""
+    # reasign channel labels:
+    chan_prefixes = st_BPA.select(channel="??B")[0].stats.channel[0:2]
+    st_BPA.select(channel="??B")[0].stats.channel = ''.join((chan_prefixes,"L"))
+    st_BPA.select(channel="??P")[0].stats.channel = ''.join((chan_prefixes,"Q"))
+    st_BPA.select(channel="??A")[0].stats.channel = ''.join((chan_prefixes,"T"))
     # Rotate BPA to LQT (just inverse angle of LQT -> BPA):
     st_LQT = _rotate_LQT_to_BPA(st_BPA, -back_azi)
+    # And reasign channel labels again:
+    chan_prefixes = st_LQT.select(channel="??B")[0].stats.channel[0:2]
+    st_LQT.select(channel="??B")[0].stats.channel = ''.join((chan_prefixes,"L"))
+    st_LQT.select(channel="??P")[0].stats.channel = ''.join((chan_prefixes,"Q"))
+    st_LQT.select(channel="??A")[0].stats.channel = ''.join((chan_prefixes,"T"))
     return st_LQT
 
 
@@ -204,20 +220,20 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
     ###!!!st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
     st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, 0)
     # Perform SWS correction:
-    x_in, y_in = st_BPA_uncorr.select(channel="??Q")[0].data, st_LQT_uncorr.select(channel="??T")[0].data
-    fs = st_BPA_uncorr.select(channel="??T")[0].stats.sampling_rate
+    x_in, y_in = st_BPA_uncorr.select(channel="??P")[0].data, st_BPA_uncorr.select(channel="??A")[0].data
+    fs = st_BPA_uncorr.select(channel="??A")[0].stats.sampling_rate
     # 1. Rotate data into splitting coordinates:
     x, y = _rotate_QT_comps(x_in, y_in, phi * np.pi/180)
     # And write fast and slow directions out as F and S channels:
     chan_prefixes = st_ZNE_uncorr.select(channel="??Z")[0].stats.channel[0:2]
     st_BPA_corr = st_BPA_uncorr.copy()
     # For fast:
-    tr_tmp = st_BPA_corr.select(channel="??Q")[0].copy()
+    tr_tmp = st_BPA_corr.select(channel="??P")[0].copy()
     tr_tmp.data = x
     tr_tmp.stats.channel = "".join((chan_prefixes, "F"))
     st_BPA_corr.append(tr_tmp)
     # For slow:
-    tr_tmp = st_BPA_corr.select(channel="??T")[0].copy()
+    tr_tmp = st_BPA_corr.select(channel="??A")[0].copy()
     tr_tmp.data = y
     tr_tmp.stats.channel = "".join((chan_prefixes, "S"))
     st_BPA_corr.append(tr_tmp)
@@ -227,8 +243,8 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
     # 3. And rotate back to QT (PA) coordinates:
     x, y = _rotate_QT_comps(x, y, -phi * np.pi/180)
     # And put data back in stream form:
-    st_BPA_corr.select(channel="??Q")[0].data = x 
-    st_BPA_corr.select(channel="??T")[0].data = y
+    st_BPA_corr.select(channel="??P")[0].data = x 
+    st_BPA_corr.select(channel="??A")[0].data = y
     # And rotate back into ZNE coords:
     ###!!!st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr, back_azi)
     st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr, 0)
@@ -236,24 +252,21 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
     # And append BPA channels if specified:
     if return_BPA:
         # Append B channel:
-        tr_tmp = st_BPA_corr.select(channel="??L")[0]
-        tr_tmp.stats.channel = "".join((chan_prefixes, "B"))
+        tr_tmp = st_BPA_corr.select(channel="??B")[0]
         st_ZNE_corr.append(tr_tmp)
         # Calculate P and A channels:
         # (Note: P is actually not P, but oriented to N if using current ZNE projection,
         # therefore need to rotate P,A clockwise by src_pol deg with respect to N)
         # Rotate by src pol
         # st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
-        tr_tmp_P = st_BPA_corr.select(channel="??Q")[0] # (note that P=Q in st_BPA_corr)
-        tr_tmp_A = st_BPA_corr.select(channel="??T")[0] # (note that A=T in st_BPA_corr)
+        tr_tmp_P = st_BPA_corr.select(channel="??P")[0] # (note that P=Q in st_BPA_corr)
+        tr_tmp_A = st_BPA_corr.select(channel="??A")[0] # (note that A=T in st_BPA_corr)
         ###!!!tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(tr_tmp_P.data, tr_tmp_A.data, np.deg2rad(src_pol))
         tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_ZNE_corr.select(channel="??N")[0].data, 
                                                 -st_ZNE_corr.select(channel="??E")[0].data, np.deg2rad(src_pol))
         # Append P channel:
-        tr_tmp_P.stats.channel = "".join((chan_prefixes, "P"))
         st_ZNE_corr.append(tr_tmp_P)
         # Append A channel:
-        tr_tmp_A.stats.channel = "".join((chan_prefixes, "A"))
         st_ZNE_corr.append(tr_tmp_A)
     # And remove fast and slow channels, if not wanted:
     if not return_FS:
@@ -912,8 +925,8 @@ class create_splitting_object:
             st_ZNE_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
                                 endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
             try:
-                tr_P = st_BPA_curr.select(station=station, channel="??Q")[0]
-                tr_A = st_BPA_curr.select(station=station, channel="??T")[0]
+                tr_P = st_BPA_curr.select(station=station, channel="??P")[0]
+                tr_A = st_BPA_curr.select(station=station, channel="??A")[0]
             except IndexError:
                 print("Warning: Insufficient data to perform splitting. Skipping this event-receiver observation.")
                 continue
