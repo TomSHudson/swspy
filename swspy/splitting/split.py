@@ -247,11 +247,12 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
     st_BPA_corr.select(channel="??A")[0].data = y
     # And rotate back into ZNE coords:
     ###!!!st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr, back_azi)
-    st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr, 0)
+    st_LQT_corr = _rotate_BPA_to_LQT(st_BPA_corr.copy(), 0)
     st_ZNE_corr = _rotate_LQT_to_ZNE(st_LQT_corr, back_azi, event_inclin_angle_at_station)
     # And append BPA channels if specified:
     if return_BPA:
         # Append B channel:
+        # (Note: L equivilent to B)
         tr_tmp = st_BPA_corr.select(channel="??B")[0]
         st_ZNE_corr.append(tr_tmp)
         # Calculate P and A channels:
@@ -690,7 +691,7 @@ class create_splitting_object:
         # samples_weights = 1. - ((lag_errs/lags)**2 + (phi_errs/phis)**2) # (= 1 - (var_lag_norm + var_phi_norm))
         
         # Convert phis and lags into new coordinate system:
-        samples_new_coords =  np.dstack(( ( lags / np.max(lags) ) * np.cos(2 * phis), ( lags / np.max(lags) ) * np.sin(2 * phis) ))[0,:,:]
+        samples_new_coords =  np.dstack(( ( lags / np.max(lags) ) * np.cos(2 * np.deg2rad(phis)), ( lags / np.max(lags) ) * np.sin(2 * np.deg2rad(phis)) ))[0,:,:]
 
         # And perform clustering:
         # ward = AgglomerativeClustering(n_clusters=None, linkage='ward',distance_threshold=0.25)
@@ -742,6 +743,39 @@ class create_splitting_object:
                 return None, None, None, None, None, None
             else:
                 return None, None, None, None
+
+
+    def _convert_phi_from_Q_to_NZ_coords(self, back_azi, event_inclin_angle_at_station, opt_phi): #, grid_search_results_all_win_EV, grid_search_results_all_win_XC, clusters_dict=None):
+        """Function to convert phi and all assocated data structures from phi relative to clockwise 
+        from Q to phi clockwise from N and phi from up.
+        Returns opt_phi_vec as a 2-vector of angle from N in degrees and angle from vertical up in 
+        degrees. All angles are in degrees."""
+        # Define new phi output as a vector:
+        opt_phi_vec = np.zeros(2)
+        # Calculate horizontal angle from N:
+        opt_phi_vec[0] = opt_phi + back_azi 
+        if opt_phi_vec[0] > 360:
+            opt_phi_vec[0] = opt_phi_vec[0] - 360 # Convert to 0-360 deg.
+        if opt_phi_vec[0] > 90:
+            opt_phi_vec[0] = opt_phi_vec[0] - 180 # Convert to -90 to 90 deg
+        # Calculate vertical angle from up:
+        opt_phi_vec[1] = 90 - event_inclin_angle_at_station 
+
+        # # And shift rid search results appropriately:
+        # dphi = self.phi_labels[1] - self.phi_labels[0]
+        # phi_shift = int( back_azi / dphi )
+        # grid_search_results_all_win_EV = np.roll(grid_search_results_all_win_EV, phi_shift, axis=2) # axis = 2 as of shape (windows, lags, phis)
+        # grid_search_results_all_win_XC = np.roll(grid_search_results_all_win_XC, phi_shift, axis=2) # axis = 2 as of shape (windows, lags, phis)
+
+        # And shift clusters_dict values, if specified:
+        # if clusters_dict:
+        #     clusters_dict[str(i)]['phis'] 
+
+        # if clusters_dict:
+        #     return opt_phi_vec, grid_search_results_all_win_EV, grid_search_results_all_win_XC, clusters_dict
+        # else:
+        return opt_phi_vec #, grid_search_results_all_win_EV, grid_search_results_all_win_XC
+
 
 
     def _calc_Q_w(self, opt_phi_EV, opt_lag_EV, grid_search_results_all_win_XC, tr_for_dof, method="dbscan"):
@@ -816,7 +850,7 @@ class create_splitting_object:
 
         # 2. And remove splitting to get corrected waveforms:
         try:
-            phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi'])
+            phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_Q'])
             dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
             phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
             dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
@@ -864,7 +898,7 @@ class create_splitting_object:
             sys.exit()
 
         # Create datastores:
-        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'src_pol': [], 'src_pol_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
+        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi_from_Q': [], 'phi_vec': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'src_pol': [], 'src_pol_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
         if return_clusters_data:
             self.clustering_info = {}
         self.phi_dt_grid_average = {}
@@ -890,7 +924,7 @@ class create_splitting_object:
                     event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
                     print("Warning: LQT coord. system not yet fully tested. \n Might produce spurious results...")
                 elif self.coord_system == "ZNE":
-                    event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence, simulating NE components.
+                    event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence (positive up), simulating NE components.
                 else:
                     print("Error: coord_system =", self.coord_system, "not supported. Exiting.")
                     sys.exit()
@@ -904,46 +938,45 @@ class create_splitting_object:
                     continue
             # And rotate into emerging ray coord system, LQT:
             st_LQT_curr = _rotate_ZNE_to_LQT(st_ZNE_curr, back_azi, event_inclin_angle_at_station)
-            # And rotate into propagation coordinate system (as in Walsh et al. (2013)), BPA:
-            # (Note rotation by back_azi, as want P to be oriented to North for splitting angle calculation)
-            try:
-                st_BPA_curr = _rotate_LQT_to_BPA(st_LQT_curr, back_azi)
-            except:
-                print("Warning: Q and/or T components not found. Skipping this event-receiver observation.")
-                continue
-            del st_LQT_curr #st_ZNE_curr, st_LQT_curr
-            gc.collect()
+            # # And rotate into propagation coordinate system (as in Walsh et al. (2013)), BPA:
+            # # (Note rotation by back_azi, as want P to be oriented to North for splitting angle calculation)
+            # try:
+            #     st_BPA_curr = _rotate_LQT_to_BPA(st_LQT_curr, back_azi)
+            # except:
+            #     print("Warning: Q and/or T components not found. Skipping this event-receiver observation.")
+            #     continue
+            # del st_LQT_curr #st_ZNE_curr
+            # gc.collect()
 
-
-            # 2. Get horizontal channels and trim to pick:
+            # 2. Get S wave channels and trim to pick:
             if self.nonlinloc_event_path:
                 arrival_time_curr = self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time']
             else:
                 arrival_time_curr = self.S_phase_arrival_times[station_idx_tmp]
-            st_BPA_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
+            st_LQT_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
                                 endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
             st_ZNE_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
                                 endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
             try:
-                tr_P = st_BPA_curr.select(station=station, channel="??P")[0]
-                tr_A = st_BPA_curr.select(station=station, channel="??A")[0]
+                tr_Q = st_LQT_curr.select(station=station, channel="??Q")[0]
+                tr_T = st_LQT_curr.select(station=station, channel="??T")[0]
             except IndexError:
                 print("Warning: Insufficient data to perform splitting. Skipping this event-receiver observation.")
                 continue
 
             # 3. Get window indices:
-            self.fs = tr_A.stats.sampling_rate
+            self.fs = tr_T.stats.sampling_rate
             win_start_idxs, win_end_idxs = self._select_windows()
 
             # 4. Calculate splitting angle and delay times for windows:
             # (Silver and Chan (1991) and Teanby2004 eigenvalue method)
             # 4.a. Get data for all windows:
             if self.sws_method == "EV":
-                grid_search_results_all_win_EV, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_P.data, tr_A.data, win_start_idxs, win_end_idxs, 
+                grid_search_results_all_win_EV, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs, win_end_idxs, 
                                                                                                                     sws_method=self.sws_method)
             elif self.sws_method == "EV_and_XC":
                 try:
-                    grid_search_results_all_win_EV, grid_search_results_all_win_XC, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_P.data, tr_A.data, win_start_idxs, win_end_idxs, 
+                    grid_search_results_all_win_EV, grid_search_results_all_win_XC, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs, win_end_idxs, 
                                                                                                                     sws_method=self.sws_method)
                 except np.linalg.LinAlgError:
                     # And check that returned values without issues:
@@ -953,7 +986,7 @@ class create_splitting_object:
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
             # 4.b. Get lag and phi values and errors associated with windows:
-            phis, lags, phi_errs, lag_errs = self._get_phi_and_lag_errors(grid_search_results_all_win_EV, tr_A)
+            phis, lags, phi_errs, lag_errs = self._get_phi_and_lag_errors(grid_search_results_all_win_EV, tr_T)
 
             # 6. Perform clustering for all windows to find best result:
             # (Teanby2004 method, but in new coordinate space with dbscan clustering)
@@ -966,7 +999,15 @@ class create_splitting_object:
                 # If didn't cluster, skip station:
                 continue
 
-            # 7. And calculate source polarisation:
+            # 7. Calculate Wustefeld et al. (2010) quality factor:
+            # (For automated approach)
+            # (Only if sws_method = "EV_and_XC")
+            if self.sws_method == "EV_and_XC":
+                Q_w = self._calc_Q_w(opt_phi, opt_lag, grid_search_results_all_win_XC, tr_T, method="dbscan")
+            else:
+                Q_w = np.nan        
+
+            # 8. And calculate source polarisation:
             # Get wfs:
             # st_ZNE_curr = self.st.select(station=station).copy()
             st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, opt_phi, opt_lag, back_azi, event_inclin_angle_at_station, return_BPA=False)
@@ -994,18 +1035,11 @@ class create_splitting_object:
             del st_ZNE_curr, st_ZNE_curr_sws_corrected, fast_curr_t_shifted, slow_curr_t_shifted
             gc.collect()
 
-            # 8. Calculate Wustefeld et al. (2010) quality factor:
-            # (For automated approach)
-            # (Only if sws_method = "EV_and_XC")
-            if self.sws_method == "EV_and_XC":
-                Q_w = self._calc_Q_w(opt_phi, opt_lag, grid_search_results_all_win_XC, tr_A, method="dbscan")
-            else:
-                Q_w = np.nan            
+            # 9. Convert phi in terms of clockwise from Q to relative to N and Z up:
+            # (Note: only do for output phi)
+            opt_phi_vec = self._convert_phi_from_Q_to_NZ_coords(back_azi, event_inclin_angle_at_station, opt_phi)
 
-            # ?. Rotate output phi back into angle relative to N:
-            # opt_phi_from_N = self._rot_phi_from_sws_coords_to_deg_from_N(opt_phi, back_azi)
-
-            # 9. And append data to overall datastore:
+            # 10. And append data to overall datastore:
             # Find ray path data to output:
             if self.nonlinloc_event_path:
                 # If nonlinloc supplied data:
@@ -1020,7 +1054,7 @@ class create_splitting_object:
                 ray_back_azi = np.nan
                 ray_inc_at_station = np.nan
             # And append data to result df:
-            df_tmp = pd.DataFrame(data={'station': [station], 'phi': [opt_phi], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'src_pol': [src_pol_deg], 'src_pol_err': [src_pol_deg_err], 'Q_w' : [Q_w], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
+            df_tmp = pd.DataFrame(data={'station': [station], 'phi_from_Q': [opt_phi], 'phi_vec': [opt_phi_vec], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'src_pol': [src_pol_deg], 'src_pol_err': [src_pol_deg_err], 'Q_w' : [Q_w], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
             self.sws_result_df = self.sws_result_df.append(df_tmp)
             try:
                 opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
@@ -1055,7 +1089,8 @@ class create_splitting_object:
                 continue
             # Splitting parameters:
             try:
-                phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi'])
+                phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_Q'])
+                phi_vec_curr = self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_vec']
                 dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
                 phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
                 dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
@@ -1239,7 +1274,7 @@ class create_splitting_object:
             text_ax.text(0,0,"Event origin time : \n"+self.origin_time.strftime("%Y-%m-%dT%H:%M:%SZ"), fontsize='small')
             text_ax.text(0,-1,"Station : "+station, fontsize='small')
             text_ax.text(0,-2,"$\delta$ $t$ : "+str(dt_curr)+" +/-"+str(round(dt_err_curr, 5))+" $s$", fontsize='small')
-            text_ax.text(0,-3,"$\phi$ : "+str(phi_curr)+"$^o$"+" +/-"+str(phi_err_curr)+"$^o$", fontsize='small')
+            text_ax.text(0,-3,"$\phi$ from N : "+str(phi_vec_curr[0])+"$^o$"+" +/-"+str(phi_err_curr)+"$^o$", fontsize='small')
             text_ax.text(0,-4,''.join(("src_pol: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
             text_ax.text(0,-5,"Coord. sys. : "+self.coord_system, fontsize='small')
             if Q_w_curr <= 1.1:
@@ -1261,7 +1296,7 @@ class create_splitting_object:
             ne_corr_ax.set_xlabel('E')
             ne_corr_ax.set_ylabel('N')
             phi_dt_ax.set_xlabel('$\delta$ t (s)')
-            phi_dt_ax.set_ylabel('$\phi$ ($^o$)')
+            phi_dt_ax.set_ylabel('$\phi$ from Q ($^o$)')
 
             # plt.colorbar()
             # plt.tight_layout()
