@@ -1125,7 +1125,7 @@ class create_splitting_object:
             fig = plt.figure(constrained_layout=True, figsize=(20,16))
             if suppress_direct_plotting:
                 plt.ion()
-            gs = fig.add_gridspec(4, 5) # no. rows, no. cols
+            gs = fig.add_gridspec(4, 5, wspace=0.3, hspace=0.3) # no. rows, no. cols
             wfs_ax = fig.add_subplot(gs[0:2, 0:2])
             wfs_ax.get_xaxis().set_visible(False)
             wfs_ax.get_yaxis().set_visible(False)
