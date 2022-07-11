@@ -140,28 +140,49 @@ def _rotate_QT_comps(data_arr_Q, data_arr_T, rot_angle_rad):
     return data_arr_Q_rot, data_arr_T_rot
 
 
-def _find_src_pol_rel_to_y(x, y):
-    """Function to find source polarisation angle relative to clockwise from y.
-    Returns angle in degrees and associated error."""
-    # Calculate eigenvalues and vectors:
+def _find_pol(x,y):
+    """Function to return polarity of a 2-vector."""
+    # 1. Calculate eigenvalues and vectors:
     xy_arr = np.vstack((x, y))
     lambdas_unsort, eigvecs_unsort = np.linalg.eig(np.cov(xy_arr))
-    
-    # Find angle associated with max. eigenvector:
+
+    # 2. Find angle associated with max. eigenvector:
     max_eigvec = eigvecs_unsort[:,np.argmax(lambdas_unsort)]
     pol_deg = np.rad2deg( np.arctan2(max_eigvec[0], max_eigvec[1]) )
-    # # And limit to be between 0 to 180:
-    # if pol_deg < 0:
-    #     pol_deg = pol_deg + 180.
-    # elif pol_deg >= 180.:
-    #     pol_deg = pol_deg - 180.
-    
-    # And calculate approx. error in result:
+
+    # 3. And calculate approx. error in result:
     # (Based on ratio of orthogonal eigenvalue magnitudes)
     # (Approximately a maximum, hence the 180 degree term)
     pol_deg_err = 180. * ( np.min(lambdas_unsort) / np.max(lambdas_unsort) )
 
     return pol_deg, pol_deg_err
+
+
+def _find_src_pol(x, y, z):
+    """Function to find source polarisation angle relative to clockwise from y 
+    and clockwise from z.
+    Returns angles in degrees and associated errors."""
+    # Find horizontal polarisation:
+    h_src_pol_deg, h_src_pol_deg_err = _find_pol(x,y)
+    # 4. And limit to be between 0 to 180:
+    if h_src_pol_deg < 0:
+        h_src_pol_deg = h_src_pol_deg + 180.
+    elif h_src_pol_deg >= 180.:
+        h_src_pol_deg = h_src_pol_deg - 180.
+
+    # And find vertical polarisation:
+    v_src_pol_deg, v_src_pol_deg_err = _find_pol(np.sqrt((x**2) + (y**2)),z)
+    # 4. And limit to be between 0 to 180:
+    if v_src_pol_deg < 0:
+        v_src_pol_deg = v_src_pol_deg + 180.
+    elif v_src_pol_deg >= 180.:
+        v_src_pol_deg = v_src_pol_deg - 180.
+
+    # And combine out:
+    src_pol_deg = np.array([h_src_pol_deg, v_src_pol_deg])
+    src_pol_deg_err = np.array([h_src_pol_deg_err, v_src_pol_deg_err])
+
+    return src_pol_deg, src_pol_deg_err
 
 
 def _get_ray_back_azi_and_inc_from_nonlinloc(nonlinloc_hyp_data, station):
@@ -854,14 +875,14 @@ class create_splitting_object:
             dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
             phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
             dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
-            src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol'])
-            src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_err'])
+            src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N'])
+            src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N_err'])
             Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
         except TypeError:
             # If cannot get parameters becuase splitting clustering failed, skip station:
             raise CustomError("Cannot get splitting parameters because splitting clustering failed.")
         st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station,
-                                                    return_BPA=True, src_pol=src_pol_curr)
+                                                    return_BPA=True, src_pol=src_pol_curr) # (Note: Uses src_pol in horizontal direction, as calc. P and A from horizontal dir at the moment)
 
         return st_ZNE_curr, st_ZNE_curr_sws_corrected
     
@@ -898,7 +919,7 @@ class create_splitting_object:
             sys.exit()
 
         # Create datastores:
-        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi_from_Q': [], 'phi_vec': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'src_pol': [], 'src_pol_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
+        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi_from_Q': [], 'phi_from_N': [], 'phi_from_U': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'src_pol_from_N': [], 'src_pol_from_U': [], 'src_pol_from_N_err': [], 'src_pol_from_U_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
         if return_clusters_data:
             self.clustering_info = {}
         self.phi_dt_grid_average = {}
@@ -1011,28 +1032,11 @@ class create_splitting_object:
             # Get wfs:
             # st_ZNE_curr = self.st.select(station=station).copy()
             st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr, opt_phi, opt_lag, back_azi, event_inclin_angle_at_station, return_BPA=False)
-            # # And find src pol angle relative to fast direction (Using FS):
-            # fast_curr_t_shifted = np.roll(st_ZNE_curr_sws_corrected.select(channel="??F")[0].data, 
-            #                                 int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
-            # slow_curr_t_shifted = np.roll(st_ZNE_curr_sws_corrected.select(channel="??S")[0].data, 
-            #                                 -int((opt_lag / 2) * st_ZNE_curr_sws_corrected.select(channel="??F")[0].stats.sampling_rate))
-            # src_pol_deg, src_pol_deg_err = _find_src_pol_rel_to_y(slow_curr_t_shifted, fast_curr_t_shifted)
-            # # And perform shift from relative to fast-direction to relative to N:
-            # # (Note: Only currently valid for ZNE orientation)
-            # if opt_phi >= 0:
-            #     src_pol_deg = opt_phi - src_pol_deg
-            # else:
-            #     src_pol_deg = 360 - (opt_phi + src_pol_deg)
-            # And find src pol angle relative to fast direction (Using NE):
-            fast_curr_t_shifted = st_ZNE_curr_sws_corrected.select(channel="??N")[0].data
-            slow_curr_t_shifted = st_ZNE_curr_sws_corrected.select(channel="??E")[0].data
-            src_pol_deg, src_pol_deg_err = _find_src_pol_rel_to_y(slow_curr_t_shifted, fast_curr_t_shifted)
-            # And limit to be between 0 to 180:
-            if src_pol_deg < 0:
-                src_pol_deg = src_pol_deg + 180.
-            elif src_pol_deg >= 180.:
-                src_pol_deg = src_pol_deg - 180.
-            del st_ZNE_curr, st_ZNE_curr_sws_corrected, fast_curr_t_shifted, slow_curr_t_shifted
+            # And find src pol angle relative to N and U (Using ZNE):
+            src_pol_deg, src_pol_deg_err = _find_src_pol(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, 
+                                                            st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, 
+                                                            st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data)
+            del st_ZNE_curr, st_ZNE_curr_sws_corrected
             gc.collect()
 
             # 9. Convert phi in terms of clockwise from Q to relative to N and Z up:
@@ -1054,7 +1058,7 @@ class create_splitting_object:
                 ray_back_azi = np.nan
                 ray_inc_at_station = np.nan
             # And append data to result df:
-            df_tmp = pd.DataFrame(data={'station': [station], 'phi_from_Q': [opt_phi], 'phi_vec': [opt_phi_vec], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'src_pol': [src_pol_deg], 'src_pol_err': [src_pol_deg_err], 'Q_w' : [Q_w], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
+            df_tmp = pd.DataFrame(data={'station': [station], 'phi_from_Q': [opt_phi], 'phi_from_N': [opt_phi_vec[0]], 'phi_from_U': [opt_phi_vec[1]], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [Q_w], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
             self.sws_result_df = self.sws_result_df.append(df_tmp)
             try:
                 opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
@@ -1090,12 +1094,12 @@ class create_splitting_object:
             # Splitting parameters:
             try:
                 phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_Q'])
-                phi_vec_curr = self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_vec']
+                phi_from_N_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_N'])
                 dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
                 phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
                 dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
-                src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol'])
-                src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_err'])
+                src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N'])
+                src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N_err'])
                 Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
             except TypeError:
                 # If cannot get parameters becuase splitting clustering failed, skip station:
@@ -1274,8 +1278,8 @@ class create_splitting_object:
             text_ax.text(0,0,"Event origin time : \n"+self.origin_time.strftime("%Y-%m-%dT%H:%M:%SZ"), fontsize='small')
             text_ax.text(0,-1,"Station : "+station, fontsize='small')
             text_ax.text(0,-2,"$\delta$ $t$ : "+str(dt_curr)+" +/-"+str(round(dt_err_curr, 5))+" $s$", fontsize='small')
-            text_ax.text(0,-3,"$\phi$ from N : "+str(phi_vec_curr[0])+"$^o$"+" +/-"+str(phi_err_curr)+"$^o$", fontsize='small')
-            text_ax.text(0,-4,''.join(("src_pol: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
+            text_ax.text(0,-3,"$\phi$ from N : "+"{0:0.1f}".format(phi_from_N_curr)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_curr)+"$^o$", fontsize='small')
+            text_ax.text(0,-4,''.join(("src pol from N: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
             text_ax.text(0,-5,"Coord. sys. : "+self.coord_system, fontsize='small')
             if Q_w_curr <= 1.1:
                 text_ax.text(0,-6,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
