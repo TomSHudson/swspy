@@ -1,0 +1,32 @@
+NLLOC "./loc/whillans_JL_man_picks/loc.Tom__RunNLLoc000.20140225.121220.grid0" "LOCATED" "Location completed."
+SIGNATURE "Tom Hudson, University of Oxford   obs:./obs/whillans_JL_man_picks/20140225121220.nonlinloc   NLLoc:v7.00.00(27Oct2017)  run:08Feb2022 16h10m22"
+COMMENT "Control"
+GRID  3000 3000 300  -15 -15 -0.5  0.01 0.01 0.01 PROB_DENSITY
+SEARCH OCTREE nInitial 400 nEvaluated 1752 smallestNodeSide 0.011715/0.011715/0.002930 oct_tree_integral 2.307463e-04 scatter_volume 2.307463e-04
+HYPOCENTER  x -0.374018 y 0.457736 z 0.649902  OT 20.3281  ix -1 iy -1 iz -1 MAXIMUM_LIKELIHOOD
+GEOGRAPHIC  OT 2014 02 25  12 12 20.328140  Lat -84.470900 Long -157.684755 Depth 0.649902
+QUALITY  Pmax 1.87337e+41 MFmin 68.2564 MFmax 68.3223 RMS 0.00718057 Nphs 12 Gap 195.525 Dist 0.0470475 Mamp -9.90 0 Mdur -9.90 0
+VPVSRATIO  VpVsRatio 3.53277  Npair 6  Diff 0.412
+STATISTICS  ExpectX -0.37306 Y 0.46281 Z 0.639134  CovXX 0.00109062 XY 0.000451517 XZ -0.000355009 YY 0.000653786 YZ -0.000193787 ZZ 0.00151171 EllAz1  327.332 Dip1  -1.42941 Len1  0.036141 Az2  236.128 Dip2  -40.1081 Len2  0.0604022 Len3  8.086704e-02
+STAT_GEOG  ExpectLat -84.470855 Long -157.684666 Depth 0.639134
+TRANSFORM  LAMBERT RefEllipsoid WGS-84  LatOrig -84.475000  LongOrig -157.650000  FirstStdParal -84.500000  SecondStdParal -84.450000  RotCW 0.000000
+QML_OriginQuality  assocPhCt 12  usedPhCt 12  assocStaCt -1  usedStaCt 6  depthPhCt -1  stdErr 0.00718057  azGap 195.525  secAzGap 195.525  gtLevel -  minDist 0.0470475 maxDist 1.73613 medDist 0.969469
+QML_OriginUncertainty  horUnc -1  minHorUnc 0.0291968  maxHorUnc 0.056211  azMaxHorUnc 57.9074
+QML_ConfidenceEllipsoid  semiMajorAxisLength 0.080867  semiMinorAxisLength 0.036141  semiIntermediateAxisLength 0.0604022  majorAxisPlunge -49.8558  majorAxisAzimuth 59.0278  majorAxisRotation 167.072
+FOCALMECH  Hyp  -84.470900 -157.684755 0.649902 Mech  0 0 0 mf  0 nObs 0
+PHASE ID Ins Cmp On Pha  FM Date     HrMn   Sec     Err  ErrMag    Coda      Amp       Per  >   TTpred    Res       Weight    StaLoc(X  Y         Z)        SDist    SAzim  RAz  RDip RQual    Tcorr 
+WS15   ?    ?    ? P      ? 20140225 1212   20.5360 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.2062    0.0017    1.2459   -0.4154    0.4801   -0.1150    0.0470 298.38 298.4 200.0  0     0.0000
+WS15   ?    ?    ? S      ? 20140225 1212   20.7360 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.4020    0.0059    1.1831   -0.4154    0.4801   -0.1150    0.0470 298.38 298.4 200.0  0     0.0000
+WS04   ?    ?    ? P      ? 20140225 1212   20.5800 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.2533   -0.0014    1.2340   -0.8293    0.1558   -0.1150    0.5463 236.45 236.4 145.4  9     0.0000
+WS04   ?    ?    ? S      ? 20140225 1212   20.8200 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.4938   -0.0019    1.2268   -0.8293    0.1558   -0.1150    0.5463 236.45 236.4 145.4  9     0.0000
+WS07   ?    ?    ? P      ? 20140225 1212   20.6560 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.3186    0.0093    1.0767    0.1741   -0.2681   -0.1150    0.9095 142.94 142.9 127.4  9     0.0000
+WS07   ?    ?    ? S      ? 20140225 1212   20.9400 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.6212   -0.0093    0.9899    0.1741   -0.2681   -0.1150    0.9095 142.94 142.9 127.4  9     0.0000
+WS03   ?    ?    ? P      ? 20140225 1212   20.6960 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.3440    0.0239    0.4157   -0.5372   -0.5587   -0.1150    1.0294 189.12 189.1 124.1  9     0.0000
+WS03   ?    ?    ? S      ? 20140225 1212   21.0080 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.6707    0.0092    1.0795   -0.5372   -0.5587   -0.1150    1.0294 189.12 189.1 124.1  9     0.0000
+WS05   ?    ?    ? P      ? 20140225 1212   20.6760 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.3516   -0.0037    1.1921   -1.2195    1.1045   -0.1150    1.0645 307.41 307.4 123.3  9     0.0000
+WS05   ?    ?    ? S      ? 20140225 1212   21.0120 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.6855   -0.0016    1.2312   -1.2195    1.1045   -0.1150    1.0645 307.41 307.4 123.3  9     0.0000
+WS02   ?    ?    ? P      ? 20140225 1212   20.7000 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.5077   -0.1358    0.0000   -0.2404   -1.2732   -0.1167    1.7361 175.59 175.6 112.5  9     0.0000
+WS02   ?    ?    ? S      ? 20140225 1212   21.3120 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.9899   -0.0060    1.1252   -0.2404   -1.2732   -0.1167    1.7361 175.59 175.6 112.5  9     0.0000
+END_PHASE
+END_NLLOC
+

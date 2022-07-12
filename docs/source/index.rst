@@ -11,6 +11,7 @@ swspy Documentation
    :caption: Contents:
    
    installation
+   coordinate_system
    tutorials
    modules
 

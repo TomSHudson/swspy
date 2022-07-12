@@ -1,0 +1,22 @@
+NLLOC "./loc/whillans_JL_man_picks/loc.Tom__RunNLLoc000.20140120.173138.grid0" "LOCATED" "Location completed."
+SIGNATURE "Tom Hudson, University of Oxford   obs:./obs/whillans_JL_man_picks/20140120173139.nonlinloc   NLLoc:v7.00.00(27Oct2017)  run:08Feb2022 16h10m20"
+COMMENT "Control"
+GRID  3000 3000 300  -15 -15 -0.5  0.01 0.01 0.01 PROB_DENSITY
+SEARCH OCTREE nInitial 400 nEvaluated 3224 smallestNodeSide 0.011715/0.011715/0.002930 oct_tree_integral 3.278659e-04 scatter_volume 3.275370e-04
+HYPOCENTER  x -1.35806 y 0.504596 z -0.334473  OT 38.4928  ix -1 iy -1 iz -1 MAXIMUM_LIKELIHOOD
+GEOGRAPHIC  OT 2014 01 20  17 31 38.492828  Lat -84.470469 Long -157.776187 Depth -0.334473
+QUALITY  Pmax 1.40345e+14 MFmin 26.4685 MFmax 27.4437 RMS 0.00237175 Nphs 5 Gap 155.305 Dist 0.615672 Mamp -9.90 0 Mdur -9.90 0
+VPVSRATIO  VpVsRatio 0.5  Npair 2  Diff 0.016
+STATISTICS  ExpectX 2.36888 Y -2.91621 Z 0.560325  CovXX 33.579 XY -14.5138 XZ 2.28582 YY 23.8605 YZ -1.58087 ZZ 0.868798 EllAz1  122.081 Dip1  -86.3236 Len1  1.56113 Az2  215.723 Dip2  -0.233868 Len2  6.88132 Len3  1.249154e+01
+STAT_GEOG  ExpectLat -84.501071 Long -157.428671 Depth 0.560325
+TRANSFORM  LAMBERT RefEllipsoid WGS-84  LatOrig -84.475000  LongOrig -157.650000  FirstStdParal -84.500000  SecondStdParal -84.450000  RotCW 0.000000
+QML_OriginQuality  assocPhCt 5  usedPhCt 5  assocStaCt -1  usedStaCt 3  depthPhCt -1  stdErr 0.00237175  azGap 155.305  secAzGap 249.598  gtLevel -  minDist 0.615672 maxDist 0.754077 medDist 0.633435
+QML_OriginUncertainty  horUnc -1  minHorUnc 5.5545  maxHorUnc 10.0627  azMaxHorUnc 125.745
+QML_ConfidenceEllipsoid  semiMajorAxisLength 12.4915  semiMinorAxisLength 1.56113  semiIntermediateAxisLength 6.88132  majorAxisPlunge 3.66894  majorAxisAzimuth 125.738  majorAxisRotation 269.768
+FOCALMECH  Hyp  -84.470469 -157.776187 -0.334473 Mech  0 0 0 mf  0 nObs 0
+PHASE ID Ins Cmp On Pha  FM Date     HrMn   Sec     Err  ErrMag    Coda      Amp       Per  >   TTpred    Res       Weight    StaLoc(X  Y         Z)        SDist    SAzim  RAz  RDip RQual    Tcorr 
+WS05   ?    ?    ? P      ? 20140120 1731   38.7280 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.2323    0.0028    0.9927   -1.2195    1.1045   -0.1150    0.6157  13.01  13.0  68.7  9     0.0000
+WS05   ?    ?    ? S      ? 20140120 1731   38.9440 GAU  1.00e-02 -1.00e+00 -1.00e+00 -1.00e+00 >    0.4530   -0.0019    1.0066   -1.2195    1.1045   -0.1150    0.6157  13.01  13.0  68.7  9     0.0000
+END_PHASE
+END_NLLOC
+
