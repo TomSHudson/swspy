@@ -766,7 +766,7 @@ class create_splitting_object:
                 return None, None, None, None
 
 
-    def _convert_phi_from_Q_to_NZ_coords(self, back_azi, event_inclin_angle_at_station, opt_phi): #, grid_search_results_all_win_EV, grid_search_results_all_win_XC, clusters_dict=None):
+    def _convert_phi_from_Q_to_NZ_coords(self, back_azi, event_inclin_angle_at_station, opt_phi):
         """Function to convert phi and all assocated data structures from phi relative to clockwise 
         from Q to phi clockwise from N and phi from up.
         Returns opt_phi_vec as a 2-vector of angle from N in degrees and angle from vertical up in 
@@ -779,24 +779,11 @@ class create_splitting_object:
             opt_phi_vec[0] = opt_phi_vec[0] - 360 # Convert to 0-360 deg.
         if opt_phi_vec[0] > 90:
             opt_phi_vec[0] = opt_phi_vec[0] - 180 # Convert to -90 to 90 deg
+            if opt_phi_vec[0] > 90:
+                opt_phi_vec[0] = opt_phi_vec[0] - 180 # Convert to -90 to 90 deg again if needed
         # Calculate vertical angle from up:
         opt_phi_vec[1] = 90 - event_inclin_angle_at_station 
-
-        # # And shift rid search results appropriately:
-        # dphi = self.phi_labels[1] - self.phi_labels[0]
-        # phi_shift = int( back_azi / dphi )
-        # grid_search_results_all_win_EV = np.roll(grid_search_results_all_win_EV, phi_shift, axis=2) # axis = 2 as of shape (windows, lags, phis)
-        # grid_search_results_all_win_XC = np.roll(grid_search_results_all_win_XC, phi_shift, axis=2) # axis = 2 as of shape (windows, lags, phis)
-
-        # And shift clusters_dict values, if specified:
-        # if clusters_dict:
-        #     clusters_dict[str(i)]['phis'] 
-
-        # if clusters_dict:
-        #     return opt_phi_vec, grid_search_results_all_win_EV, grid_search_results_all_win_XC, clusters_dict
-        # else:
-        return opt_phi_vec #, grid_search_results_all_win_EV, grid_search_results_all_win_XC
-
+        return opt_phi_vec
 
 
     def _calc_Q_w(self, opt_phi_EV, opt_lag_EV, grid_search_results_all_win_XC, tr_for_dof, method="dbscan"):
