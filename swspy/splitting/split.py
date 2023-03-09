@@ -1066,6 +1066,215 @@ class create_splitting_object:
         return self.sws_result_df
 
 
+    def perform_sws_analysis_multi_layer(self, coord_system="ZNE"):
+        """Function to perform splitting analysis for a multi-layered medium. Currently 
+         only a 2-layer medium is supported. Works in LQT coordinate system, therefore 
+        supporting shear-wave-splitting in 3D.
+
+        Currently doesn't support any method other than <sws_method> = EV and 
+        doesn't support returning clustered data.
+
+        Method assumes that apparent delay-time is longer than fast S-wave arrival duration.
+        
+        Parameters
+        ----------
+        coord_system : str
+            Coordinate system to perform analysis in. Options are: LQT, ZNE. Will convert 
+            splitting angles back into coordinates relative to ZNE whatever system it 
+            performs the splitting within. Default = ZNE. 
+
+        """
+        # Save any parameters to class object:
+        self.coord_system = coord_system
+
+        # Create datastores:
+        sws_result_df_out = pd.DataFrame(data={'station': [], 'phi_from_Q': [], 'phi_from_N': [], 
+                                                'phi_from_U': [], 'phi_err': [], 'dt': [], 'dt_err': [], 
+                                                'src_pol_from_N': [], 'src_pol_from_U': [], 'src_pol_from_N_err': [], 
+                                                'src_pol_from_U_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
+        self.sws_multi_layer_result_df = pd.DataFrame(data={'station': [], 'phi1_from_Q': [], 'phi1_from_N': [], 
+                                                'phi1_from_U': [], 'phi1_err': [], 'dt1': [], 'dt1_err': [], 
+                                                'phi1_from_Q': [], 'phi1_from_N': [], 'phi1_from_U': [], 'phi1_err': [], 
+                                                'dt1': [], 'dt1_err': [], 
+                                                'src_pol_from_N': [], 'src_pol_from_U': [], 'src_pol_from_N_err': [], 
+                                                'src_pol_from_U_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
+        self.phi_dt_grid_average = {}
+        self.event_station_win_idxs = {}
+
+        # 0. Get initial, apparent splitting parameters:
+        # (assuming single layer)
+        self.perform_sws_analysis(coord_system=coord_system, sws_method="EV", return_clusters_data=True)
+
+        # Calculate multi-layer splitting for all sstations:
+        # Loop over stations in stream:
+        stations_list = []
+        for tr in self.st: 
+            if tr.stats.station not in stations_list:
+                stations_list.append(tr.stats.station)
+        self.stations_list = stations_list
+        for station in stations_list:
+            # ---------------- Prep. data for current station: ----------------
+            # 1. Rotate channels into LQT and BPA coordinate systems:
+            # Note: Always rotates to LQT, regardless of specified coord_system, 
+            #       but if coord_system = ZNE then will set ray to come in 
+            #       vertically.
+            st_ZNE_curr = self.st.select(station=station).copy()
+            try:
+                back_azi = self.nonlinloc_hyp_data.phase_data[station]['S']['SAzim'] + 180.
+                if back_azi >= 360.:
+                    back_azi = back_azi - 360.
+                if self.coord_system == "LQT":
+                    event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
+                    print("Warning: LQT coord. system not yet fully tested. \n Might produce spurious results...")
+                elif self.coord_system == "ZNE":
+                    event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence (positive up), simulating NE components.
+                else:
+                    print("Error: coord_system =", self.coord_system, "not supported. Exiting.")
+                    sys.exit()
+            except (KeyError, AttributeError) as e:
+                if len(self.stations_in) > 0:
+                    station_idx_tmp = self.stations_in.index(station)
+                    back_azi = self.back_azis_all_stations[station_idx_tmp]
+                    event_inclin_angle_at_station = self.receiver_inc_angles_all_stations[station_idx_tmp]
+                else:
+                    print("No S phase pick for station:", station, "therefore skipping this station.")
+                    continue
+            # And rotate into emerging ray coord system, LQT:
+            st_LQT_curr = _rotate_ZNE_to_LQT(st_ZNE_curr, back_azi, event_inclin_angle_at_station)
+
+            # 2. Get S wave channels and trim to pick:
+            if self.nonlinloc_event_path:
+                arrival_time_curr = self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time']
+            else:
+                arrival_time_curr = self.S_phase_arrival_times[station_idx_tmp]
+            st_LQT_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
+                                endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
+            st_ZNE_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
+                                endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
+            try:
+                tr_Q = st_LQT_curr.select(station=station, channel="??Q")[0]
+                tr_T = st_LQT_curr.select(station=station, channel="??T")[0]
+            except IndexError:
+                print("Warning: Insufficient data to perform splitting. Skipping this event-receiver observation.")
+                continue
+            self.fs = tr_T.stats.sampling_rate
+            # ---------------- Finished prepping data for current station ----------------
+
+            # 1. Split data into two windows:
+            # (using apparent delay time)
+            win_start_idxs, win_end_idxs = self._select_windows()
+            dt_app = self.sws_result_df.loc[self.sws_result_df['station'] == station]["dt"].values[0]
+            partition_idx = round( (self.overall_win_start_pre_fast_S_pick + dt_app) * self.fs )
+            win_start_idxs_partition1 = win_start_idxs
+            win_end_idxs_partition1 = partition_idx + np.ones(len(win_end_idxs)) # (Note: Fixed partition)
+            win_start_idxs_partition2 = partition_idx + np.ones(len(win_start_idxs)) # (Note: Fixed partition)
+            win_end_idxs_partition2 = win_end_idxs
+
+            # 2. Measure the splitting parameters for the 2nd layer:
+            # (Silver and Chan (1991) and Teanby2004 eigenvalue method)
+            # (Weighted mean of window 1 and window 2)
+            # 2.a. For first window:
+            grid_search_results_all_win_EV_win1, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs_partition1, 
+                                                                                                           win_end_idxs_partition1, sws_method="EV")
+            self.lags_labels = lags_labels 
+            self.phis_labels = phis_labels 
+            phis, lags, phi_errs, lag_errs = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win1, tr_T)         
+            opt_phi_win1, opt_lag_win1, opt_phi_err_win1, opt_lag_err_win1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+            if not opt_phi_win1:
+                continue # If didn't cluster, skip station
+            # 2.b. For second window:
+            grid_search_results_all_win_EV_win2, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs_partition2, 
+                                                                                                           win_end_idxs_partition2, sws_method="EV")
+            self.lags_labels = lags_labels 
+            self.phis_labels = phis_labels 
+            phis, lags, phi_errs, lag_errs = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win2, tr_T)         
+            opt_phi_win2, opt_lag_win2, opt_phi_err_win2, opt_lag_err_win2 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+            if not opt_phi_win2:
+                continue # If didn't cluster, skip station
+            # 2.c. Calculate weighted mean:
+            # (weighted by eigenvalue, which is a measure of linearity)
+            min_EV_win1 = np.min(np.average(grid_search_results_all_win_EV_win1, axis=0))
+            min_EV_win2 = np.min(np.average(grid_search_results_all_win_EV_win2, axis=0))
+            opt_phi_layer2 = np.average(np.array([opt_phi_win1, opt_phi_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
+            opt_lag_layer2 = np.average(np.array([opt_lag_win1, opt_lag_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
+            opt_phi_err_layer2 = np.average(np.array([opt_phi_err_win1, opt_phi_err_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
+            opt_lag_err_layer2 = np.average(np.array([opt_lag_err_win1, opt_lag_err_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
+
+            # 3. Remove effect of layer 2 anisotropy:
+            st_ZNE_curr_sws_layer_2_removed = remove_splitting(st_ZNE_curr, opt_phi_layer2, opt_lag_layer2, back_azi, event_inclin_angle_at_station, return_BPA=False)
+            st_LQT_curr_sws_layer_2_removed = _rotate_ZNE_to_LQT(st_ZNE_curr_sws_layer_2_removed, back_azi, event_inclin_angle_at_station)
+
+            # 4. Find splitting parameters for layer 1:
+            # (by perform splitting for entire trace post layer 2 correction)
+            tr_Q = st_LQT_curr_sws_layer_2_removed.select(station=station, channel="??Q")[0]
+            tr_T = st_LQT_curr_sws_layer_2_removed.select(station=station, channel="??T")[0]
+            grid_search_results_all_win_EV_layer1, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs, 
+                                                                                                           win_end_idxs, sws_method="EV")
+            self.lags_labels = lags_labels 
+            self.phis_labels = phis_labels 
+            phis, lags, phi_errs, lag_errs = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_layer1, tr_T)         
+            opt_phi_layer1, opt_lag_layer1, opt_phi_err_layer1, opt_lag_err_layer1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+            if not opt_phi_layer1:
+                continue # If didn't cluster, skip station
+            
+            # 5. And calculate source polarisation:
+            # Get wfs:
+            st_ZNE_curr_sws_corrected = remove_splitting(st_ZNE_curr_sws_layer_2_removed, opt_phi_layer1, opt_lag_layer1, back_azi, event_inclin_angle_at_station, 
+                                                         return_BPA=False)
+            # And find src pol angle relative to N and U (Using ZNE):
+            src_pol_deg, src_pol_deg_err = _find_src_pol(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, 
+                                                            st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, 
+                                                            st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data)
+            del st_ZNE_curr, st_ZNE_curr_sws_corrected, st_ZNE_curr_sws_layer_2_removed, st_LQT_curr_sws_layer_2_removed
+            gc.collect()
+
+            # 6. Convert phi in terms of clockwise from Q to relative to N and Z up:
+            # (Note: only do for output phi)
+            # For layer 1:
+            opt_phi_vec_layer1 = self._convert_phi_from_Q_to_NZ_coords(back_azi, event_inclin_angle_at_station, opt_phi_layer1)
+            # For layer 2:
+            opt_phi_vec_layer2 = self._convert_phi_from_Q_to_NZ_coords(back_azi, event_inclin_angle_at_station, opt_phi_layer2)
+
+            # 7. And append data to overall datastore:
+            # Find ray path data to output:
+            if self.nonlinloc_event_path:
+                # If nonlinloc supplied data:
+                ray_back_azi, ray_inc_at_station = _get_ray_back_azi_and_inc_from_nonlinloc(self.nonlinloc_hyp_data, station)
+            elif len(self.stations_in) > 0:
+                # Or if sws format data:
+                station_idx_tmp = self.stations_in.index(station)
+                ray_back_azi = self.back_azis_all_stations[station_idx_tmp]
+                ray_inc_at_station = self.receiver_inc_angles_all_stations[station_idx_tmp]
+            else:
+                # Else if can't specify, then return nans:
+                ray_back_azi = np.nan
+                ray_inc_at_station = np.nan
+            # And append data to result dfs:
+            df_tmp = pd.DataFrame(data={'station': [station], 'phi1_from_Q': [opt_phi_layer1], 'phi1_from_N': [opt_phi_vec_layer1[0]], 'phi1_from_U': [opt_phi_vec_layer1[1]], 'phi1_err': [opt_phi_err_layer1], 'dt1': [opt_lag_layer1], 'dt1_err': [opt_lag_err_layer1], 
+                                    'phi2_from_Q': [opt_phi_layer2], 'phi2_from_N': [opt_phi_vec_layer2[0]], 'phi2_from_U': [opt_phi_vec_layer2[1]], 'phi2_err': [opt_phi_err_layer2], 'dt2': [opt_lag_layer2], 'dt2_err': [opt_lag_err_layer2], 
+                                        'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [np.nan], 
+                                        'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
+            self.sws_multi_layer_result_df = self.sws_multi_layer_result_df.append(df_tmp)
+            df_tmp = pd.DataFrame(data={'station': [station], 'phi_from_Q': [opt_phi_layer1], 'phi_from_N': [opt_phi_vec_layer1[0]], 'phi_from_U': [opt_phi_vec_layer1[1]], 'phi_err': [opt_phi_err_layer1], 'dt': [opt_lag_layer1], 'dt_err': [opt_lag_err_layer1], 
+                                        'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [np.nan], 
+                                        'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
+            sws_result_df_out.append(df_tmp)
+            try:
+                opt_phi_idx = np.where(self.phis_labels == opt_phi_layer1)[0][0]
+                opt_lag_idx = np.where(self.lags_labels == opt_lag_layer1)[0][0]
+            except IndexError:
+                raise CustomError("Cannot find optimal phi or lag.")
+            self.phi_dt_grid_average[station] = np.average(grid_search_results_all_win_EV_layer1, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
+            self.event_station_win_idxs[station] = {}
+            self.event_station_win_idxs[station]['win_start_idxs'] = win_start_idxs
+            self.event_station_win_idxs[station]['win_end_idxs'] = win_end_idxs
+
+        # And update one output df:
+        self.sws_result_df = sws_result_df_out
+
+        return self.sws_result_df, self.sws_multi_layer_result_df
+
+
     def plot(self, outdir=None, suppress_direct_plotting=False):
         """Function to perform plotting...
         """
