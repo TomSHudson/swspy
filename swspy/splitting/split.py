@@ -561,6 +561,10 @@ class create_splitting_object:
         self.n_win = 10
         # Testing params:
         self.plot_once = True
+        # Define datastores:
+        self.sws_result_df = None 
+        self.sws_multi_layer_result_df = None 
+
 
     def _select_windows(self):
         """
@@ -872,6 +876,64 @@ class create_splitting_object:
                                                     return_BPA=True, src_pol=src_pol_curr) # (Note: Uses src_pol in horizontal direction, as calc. P and A from horizontal dir at the moment)
 
         return st_ZNE_curr, st_ZNE_curr_sws_corrected
+    
+
+    def _get_uncorr_and_corr_waveforms_multi_layer(self, station):
+        """Function to return uncorrected and corrected waveforms for a multi-layer solution, if specified."""
+        # 1. Get uncorrected waveforms:
+        st_ZNE_curr = self.st.select(station=station).copy()
+        try:
+            back_azi = self.nonlinloc_hyp_data.phase_data[station]['S']['SAzim'] + 180.
+            if back_azi >= 360.:
+                back_azi = back_azi - 360.
+            if self.coord_system == "LQT":
+                event_inclin_angle_at_station = self.nonlinloc_hyp_data.phase_data[station]['S']['RDip']
+                print("Warning: LQT coord. system not yet fully tested. \n Might produce spurious results...")
+            elif self.coord_system == "ZNE":
+                event_inclin_angle_at_station = 0. # Rotates ray to arrive at vertical incidence, simulating NE components.
+            else:
+                print("Error: coord_system =", self.coord_system, "not supported. Exiting.")
+                sys.exit()
+        except (KeyError, AttributeError) as e:
+            if len(self.stations_in) > 0:
+                station_idx_tmp = self.stations_in.index(station)
+                back_azi = self.back_azis_all_stations[station_idx_tmp]
+                event_inclin_angle_at_station = self.receiver_inc_angles_all_stations[station_idx_tmp]
+            else:
+                print("No S phase pick for station:", station, "therefore skipping this station.")
+                raise CustomError("No S phase pick for station:", station, "therefore skipping this station.")
+
+        # And trim data:
+        if self.nonlinloc_event_path:
+            arrival_time_curr = self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time']
+        else:
+            arrival_time_curr = self.S_phase_arrival_times[station_idx_tmp]
+        st_ZNE_curr.trim(starttime=arrival_time_curr - self.overall_win_start_pre_fast_S_pick,
+                            endtime=arrival_time_curr + self.overall_win_start_post_fast_S_pick + self.max_t_shift_s)
+
+        # 2. And remove splitting to get corrected waveforms, post layer 2 correction:
+        try:
+            phi_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['phi2_from_Q'])
+            dt_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['dt2'])
+            src_pol_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['src_pol_from_N'])
+        except TypeError:
+            # If cannot get parameters becuase splitting clustering failed, skip station:
+            raise CustomError("Cannot get splitting parameters because splitting clustering failed.")
+        st_ZNE_curr_sws_corrected_layer_2 = remove_splitting(st_ZNE_curr, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station,
+                                                    return_BPA=True, src_pol=src_pol_curr) # (Note: Uses src_pol in horizontal direction, as calc. P and A from horizontal dir at the moment)
+        
+        # 3. And remove splitting to get corrected waveforms, post layer 1 correction:
+        try:
+            phi_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['phi1_from_Q'])
+            dt_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['dt1'])
+            src_pol_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['src_pol_from_N'])
+        except TypeError:
+            # If cannot get parameters becuase splitting clustering failed, skip station:
+            raise CustomError("Cannot get splitting parameters because splitting clustering failed.")
+        st_ZNE_curr_sws_corrected_layer_1_and_2 = remove_splitting(st_ZNE_curr_sws_corrected_layer_2, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station,
+                                                    return_BPA=True, src_pol=src_pol_curr) # (Note: Uses src_pol in horizontal direction, as calc. P and A from horizontal dir at the moment)
+
+        return st_ZNE_curr, st_ZNE_curr_sws_corrected_layer_2, st_ZNE_curr_sws_corrected_layer_1_and_2
     
 
     def perform_sws_analysis(self, coord_system="ZNE", sws_method="EV", return_clusters_data=True):
@@ -1258,7 +1320,7 @@ class create_splitting_object:
             df_tmp = pd.DataFrame(data={'station': [station], 'phi_from_Q': [opt_phi_layer1], 'phi_from_N': [opt_phi_vec_layer1[0]], 'phi_from_U': [opt_phi_vec_layer1[1]], 'phi_err': [opt_phi_err_layer1], 'dt': [opt_lag_layer1], 'dt_err': [opt_lag_err_layer1], 
                                         'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [np.nan], 
                                         'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
-            sws_result_df_out.append(df_tmp)
+            sws_result_df_out = sws_result_df_out.append(df_tmp)
             try:
                 opt_phi_idx = np.where(self.phis_labels == opt_phi_layer1)[0][0]
                 opt_lag_idx = np.where(self.lags_labels == opt_lag_layer1)[0][0]
@@ -1287,6 +1349,11 @@ class create_splitting_object:
             except CustomError:
                 print("Skipping waveform correction for station:", station)
                 continue
+            # Waveforms (multi-layer splitting):
+            if self.sws_multi_layer_result_df is not None:
+                print("Passed multi-layer result, therefore plotting this result.")
+                # (Note: Get layer 2 correction, as intermediate stage correction, and layer 1+2 correction is full correction)
+                st_ZNE_curr, st_ZNE_curr_sws_corrected_layer_2, st_ZNE_curr_sws_corrected = self._get_uncorr_and_corr_waveforms_multi_layer(station)
             # Splitting parameters:
             try:
                 phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_Q'])
@@ -1497,6 +1564,9 @@ class create_splitting_object:
             ne_corr_ax.set_ylabel('N')
             phi_dt_ax.set_xlabel('$\delta$ t (s)')
             phi_dt_ax.set_ylabel('$\phi$ from Q ($^o$)')
+
+            # And plot some multi-layer info, if specified:
+            # HERE!!!
 
             # plt.colorbar()
             # plt.tight_layout()
