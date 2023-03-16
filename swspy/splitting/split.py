@@ -218,7 +218,7 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         Walsh (2013)). Optional. Default = False.
     src_pol : float
         If <return_BPA> = True, then uses src_pol to calculate the polarisiation and 
-        null (P,A) vectors.
+        null (P,A) vectors. Units are degrees clockwise from North.
     return_FS : bool
         If True, will return obspy stream with F (fast) and S (slow) channels 
         also included. Optional. Default = True.
@@ -284,9 +284,9 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         # st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
         tr_tmp_P = st_BPA_corr.select(channel="??P")[0] # (note that P=Q in st_BPA_corr)
         tr_tmp_A = st_BPA_corr.select(channel="??A")[0] # (note that A=T in st_BPA_corr)
-        ###!!!tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(tr_tmp_P.data, tr_tmp_A.data, np.deg2rad(src_pol))
-        tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_ZNE_corr.select(channel="??N")[0].data, 
-                                                -st_ZNE_corr.select(channel="??E")[0].data, np.deg2rad(src_pol))
+        #!tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(tr_tmp_P.data, tr_tmp_A.data, np.deg2rad(src_pol))
+        ###!!!tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_ZNE_corr.select(channel="??N")[0].data, -st_ZNE_corr.select(channel="??E")[0].data, np.deg2rad(src_pol))
+        tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_LQT_corr.select(channel="??Q")[0].data, st_LQT_corr.select(channel="??T")[0].data, np.deg2rad(src_pol - back_azi))
         # Append P channel:
         st_ZNE_corr.append(tr_tmp_P)
         # Append A channel:
@@ -923,7 +923,6 @@ class create_splitting_object:
             else:
                 print("No S phase pick for station:", station, "therefore skipping this station.")
                 raise CustomError("No S phase pick for station:", station, "therefore skipping this station.")
-
         # And trim data:
         if self.nonlinloc_event_path:
             arrival_time_curr = self.nonlinloc_hyp_data.phase_data[station]['S']['arrival_time']
@@ -1297,24 +1296,6 @@ class create_splitting_object:
             st_ZNE_curr_sws_layer_2_removed = remove_splitting(st_ZNE_curr, opt_phi_layer2, opt_lag_layer2, back_azi, event_inclin_angle_at_station, return_BPA=False)
             st_LQT_curr_sws_layer_2_removed = _rotate_ZNE_to_LQT(st_ZNE_curr_sws_layer_2_removed, back_azi, event_inclin_angle_at_station)
 
-            # TESTING!!!
-            # print([opt_phi_win1, opt_phi_win2])
-            # print([opt_lag_win1, opt_lag_win2])
-            # print([opt_eig_ratio1, opt_eig_ratio2])
-            # fig, ax = plt.subplots(figsize=(3,3))
-            # ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data, c='k')
-            # ax.plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??E")[0].data, st_ZNE_curr_sws_layer_2_removed.select(channel="??N")[0].data, c='g')
-            # plt.show()
-            # fig, ax = plt.subplots(nrows=2, figsize=(6,4), sharex=True)
-            # ax[0].plot(st_ZNE_curr.select(channel="??N")[0].data, c='k')
-            # ax[0].plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??N")[0].data, c='g')
-            # ax[1].plot(st_ZNE_curr.select(channel="??E")[0].data, c='k')
-            # ax[1].plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??E")[0].data, c='g')
-            # ax[0].vlines(win_end_idxs_partition1, -1000, 1000)
-            # ax[1].vlines(win_end_idxs_partition1, -1000, 1000)
-            # plt.show()
-            # END TESTING!!!
-
             # 4. Find splitting parameters for layer 1:
             # (by perform splitting for entire trace post layer 2 correction)
             tr_Q = st_LQT_curr_sws_layer_2_removed.select(station=station, channel="??Q")[0]
@@ -1336,6 +1317,25 @@ class create_splitting_object:
             src_pol_deg, src_pol_deg_err = _find_src_pol(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, 
                                                             st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, 
                                                             st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data)
+
+            # TESTING!!!
+            # fig, ax = plt.subplots(figsize=(3,3))
+            # ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data, c='k')
+            # ax.plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??E")[0].data, st_ZNE_curr_sws_layer_2_removed.select(channel="??N")[0].data, c='g')
+            # ax.plot(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='r')
+            # plt.show()
+            # fig, ax = plt.subplots(nrows=2, figsize=(6,4), sharex=True)
+            # ax[0].plot(st_ZNE_curr.select(channel="??N")[0].data, c='k')
+            # ax[0].plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??N")[0].data, c='g')
+            # ax[0].plot(st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='r')
+            # ax[1].plot(st_ZNE_curr.select(channel="??E")[0].data, c='k')
+            # ax[1].plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??E")[0].data, c='g')
+            # ax[1].plot(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, c='r')
+            # ax[0].vlines(win_end_idxs_partition1, -1000, 1000)
+            # ax[1].vlines(win_end_idxs_partition1, -1000, 1000)
+            # plt.show()
+            # END TESTING!!!
+
             del st_ZNE_curr, st_ZNE_curr_sws_corrected, st_ZNE_curr_sws_layer_2_removed, st_LQT_curr_sws_layer_2_removed
             gc.collect()
 
