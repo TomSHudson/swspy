@@ -1598,13 +1598,33 @@ class create_splitting_object:
             # Add text:
             text_ax.text(0,0,"Event origin time : \n"+self.origin_time.strftime("%Y-%m-%dT%H:%M:%SZ"), fontsize='small')
             text_ax.text(0,-1,"Station : "+station, fontsize='small')
-            text_ax.text(0,-2,"$\delta$ $t$ : "+str(dt_curr)+" +/-"+str(round(dt_err_curr, 5))+" $s$", fontsize='small')
-            text_ax.text(0,-3,"$\phi$ from N : "+"{0:0.1f}".format(phi_from_N_curr)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_curr)+"$^o$", fontsize='small')
-            text_ax.text(0,-4,''.join(("src pol from N: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
-            text_ax.text(0,-5,"Coord. sys. : "+self.coord_system, fontsize='small')
-            text_ax.text(0,-6,"$\lambda_2$/$\lambda_1$: "+str(round(opt_eig_ratio_curr, 3)), fontsize='small')
-            if Q_w_curr <= 1.1:
-                text_ax.text(0,-7,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
+            # Plot intermediate post layer 2 correction (multi-layer splitting):
+            if self.sws_multi_layer_result_df is not None:
+                dt_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1'])
+                dt_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1_err'])
+                dt_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2'])
+                dt_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2_err'])
+                text_ax.text(0,-2,"$\delta$ $t_{layer 1}$ : "+str(dt_layer1)+" +/-"+str(round(dt_err_layer1, 5))+" $s$", fontsize='small')
+                text_ax.text(0,-3,"$\delta$ $t_{layer 2}$ : "+str(dt_layer2)+" +/-"+str(round(dt_err_layer2, 5))+" $s$", fontsize='small')
+                phi_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_from_N'])
+                phi_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_err'])
+                phi_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_from_N'])
+                phi_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_err'])
+                text_ax.text(0,-4,"$\phi_{layer 1}$ from N : "+"{0:0.1f}".format(phi_layer1)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_layer1)+"$^o$", fontsize='small')
+                text_ax.text(0,-5,"$\phi_{layer 2}$ from N : "+"{0:0.1f}".format(phi_layer2)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_layer2)+"$^o$", fontsize='small')
+                text_ax.text(0,-6,''.join(("src pol from N: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
+                text_ax.text(0,-7,"Coord. sys. : "+self.coord_system, fontsize='small')
+                text_ax.text(0,-8,"$\lambda_2$/$\lambda_1$: "+str(round(opt_eig_ratio_curr, 3)), fontsize='small')
+                if Q_w_curr <= 1.1:
+                    text_ax.text(0,-9,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
+            else:
+                text_ax.text(0,-2,"$\delta$ $t$ : "+str(dt_curr)+" +/-"+str(round(dt_err_curr, 5))+" $s$", fontsize='small')
+                text_ax.text(0,-3,"$\phi$ from N : "+"{0:0.1f}".format(phi_from_N_curr)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_curr)+"$^o$", fontsize='small')
+                text_ax.text(0,-4,''.join(("src pol from N: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
+                text_ax.text(0,-5,"Coord. sys. : "+self.coord_system, fontsize='small')
+                text_ax.text(0,-6,"$\lambda_2$/$\lambda_1$: "+str(round(opt_eig_ratio_curr, 3)), fontsize='small')
+                if Q_w_curr <= 1.1:
+                    text_ax.text(0,-7,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
             text_ax.set_xlim(-2,10)
             text_ax.set_ylim(-10,2)
 
