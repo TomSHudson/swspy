@@ -279,6 +279,7 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         # Calculate P and A channels:
         # (Note: P is actually not P, but oriented to N if using current ZNE projection,
         # therefore need to rotate P,A clockwise by src_pol deg with respect to N)
+        # (Note: Uses src_pol in horizontal direction, as calc. P and A from horizontal dir at the moment)
         # Rotate by src pol
         # st_BPA_uncorr = _rotate_LQT_to_BPA(st_LQT_uncorr, back_azi)
         tr_tmp_P = st_BPA_corr.select(channel="??P")[0] # (note that P=Q in st_BPA_corr)
@@ -686,6 +687,7 @@ class create_splitting_object:
         phis = np.zeros(grid_search_results_all_win.shape[0])
         lag_errs = np.zeros(grid_search_results_all_win.shape[0])
         phi_errs = np.zeros(grid_search_results_all_win.shape[0])
+        min_eig_ratios = np.zeros(grid_search_results_all_win.shape[0])
         # Loop over windows:
         for i in range(grid_search_results_all_win.shape[0]):
             grid_search_result_curr_win = grid_search_results_all_win[i,:,:]
@@ -697,11 +699,13 @@ class create_splitting_object:
             # (Note: Uses transverse trace for dof estimation (see Silver and Chan 1991))
             phi_errs[i], lag_errs[i] = self._get_phi_and_lag_errors_single_win(grid_search_result_curr_win, self.lags_labels, self.phis_labels, tr_for_dof,
                                                                                  interp_fac=interp_fac)
+            # And get min_eig_ratio:
+            min_eig_ratios[i] = np.min(grid_search_result_curr_win)
 
-        return phis, lags, phi_errs, lag_errs
+        return phis, lags, phi_errs, lag_errs, min_eig_ratios
 
 
-    def _sws_win_clustering(self, lags, phis, lag_errs, phi_errs, method="dbscan", return_clusters_data=False):
+    def _sws_win_clustering(self, lags, phis, lag_errs, phi_errs, min_eig_ratios=None, method="dbscan", return_clusters_data=False):
         """Function to perform sws clustering of phis and lags. This clustering is based on the method of 
         Teanby2004, except that this function uses new coordinate system to deal with the cyclic nature  
         of phi about -90,90, and therefore uses a different clustering algorithm (dbscan) to perform 
@@ -734,6 +738,8 @@ class create_splitting_object:
                 clusters_dict[str(i)]['lag_errs'] = lag_errs[curr_cluster_idxs]
                 clusters_dict[str(i)]['phis'] = phis[curr_cluster_idxs]
                 clusters_dict[str(i)]['phi_errs'] = phi_errs[curr_cluster_idxs]
+                if not min_eig_ratios is None:
+                    clusters_dict[str(i)]['min_eig_ratios'] = min_eig_ratios[curr_cluster_idxs]
             # And find smallest variance cluster and smallest variance observation within that cluster:
             # (Note: Variances as in Teanby2004, Eq. 13, 14)
             cluster_vars = np.zeros(n_clusters)
@@ -756,18 +762,33 @@ class create_splitting_object:
             opt_phi = smallest_var_cluster['phis'][opt_obs_idx]
             opt_lag_err = smallest_var_cluster['lag_errs'][opt_obs_idx]
             opt_phi_err = smallest_var_cluster['phi_errs'][opt_obs_idx]
+            if not min_eig_ratios is None:
+                opt_eig_ratio = smallest_var_cluster['min_eig_ratios'][opt_obs_idx]
 
             if return_clusters_data:
-                return opt_phi, opt_lag, opt_phi_err, opt_lag_err, clusters_dict, min_var_idx
+                if not min_eig_ratios is None:
+                    return opt_phi, opt_lag, opt_phi_err, opt_lag_err, opt_eig_ratio, clusters_dict, min_var_idx
+                else:
+                    return opt_phi, opt_lag, opt_phi_err, opt_lag_err, clusters_dict, min_var_idx
+
             else:
-                return opt_phi, opt_lag, opt_phi_err, opt_lag_err
+                if not min_eig_ratios is None:
+                    return opt_phi, opt_lag, opt_phi_err, opt_lag_err, opt_eig_ratio
+                else:
+                    return opt_phi, opt_lag, opt_phi_err, opt_lag_err
 
         else:
             print("Warning: Failed to cluster for current receiver of current event. Skipping receiver.")
             if return_clusters_data:
-                return None, None, None, None, None, None
+                if not min_eig_ratios is None:
+                    return None, None, None, None, None, None, None
+                else:
+                    return None, None, None, None, None, None
             else:
-                return None, None, None, None
+                if not min_eig_ratios is None:
+                    return None, None, None, None, None
+                else:
+                    return None, None, None, None
 
 
     def _convert_phi_from_Q_to_NZ_coords(self, back_azi, event_inclin_angle_at_station, opt_phi):
@@ -797,7 +818,7 @@ class create_splitting_object:
         # Convert XC to all negative so that universal with mimimum method used in EV analysis:
         grid_search_results_all_win_XC = 1. / grid_search_results_all_win_XC
         # And calculate optimal lags for XC method:
-        phis_tmp, lags_tmp, phi_errs_tmp, lag_errs_tmp = self._get_phi_and_lag_errors(grid_search_results_all_win_XC, tr_for_dof)
+        phis_tmp, lags_tmp, phi_errs_tmp, lag_errs_tmp, min_eig_ratios_tmp = self._get_phi_and_lag_errors(grid_search_results_all_win_XC, tr_for_dof)
         opt_phi_XC, opt_lag_XC, opt_phi_err_XC, opt_lag_err_XC = self._sws_win_clustering(lags_tmp, phis_tmp, lag_errs_tmp, phi_errs_tmp, method=method)
 
         # 2. Calculate ratios between EV and XC methods:
@@ -1056,14 +1077,14 @@ class create_splitting_object:
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
             # 4.b. Get lag and phi values and errors associated with windows:
-            phis, lags, phi_errs, lag_errs = self._get_phi_and_lag_errors(grid_search_results_all_win_EV, tr_T)
+            phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV, tr_T)
 
             # 6. Perform clustering for all windows to find best result:
             # (Teanby2004 method, but in new coordinate space with dbscan clustering)
             if return_clusters_data:
-                opt_phi, opt_lag, opt_phi_err, opt_lag_err, clusters_dict, min_var_idx = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan", return_clusters_data=True)
+                opt_phi, opt_lag, opt_phi_err, opt_lag_err, opt_eig_ratio, clusters_dict, min_var_idx = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, min_eig_ratios=min_eig_ratios, method="dbscan", return_clusters_data=True)
             else:
-                opt_phi, opt_lag, opt_phi_err, opt_lag_err = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+                opt_phi, opt_lag, opt_phi_err, opt_lag_err, opt_eig_ratio = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, min_eig_ratios=min_eig_ratios, method="dbscan")
             # And check that clustered:
             if not opt_phi:
                 # If didn't cluster, skip station:
@@ -1240,8 +1261,9 @@ class create_splitting_object:
                                                                                                            win_end_idxs_partition1, sws_method="EV")
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
-            phis, lags, phi_errs, lag_errs = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win1, tr_T)         
-            opt_phi_win1, opt_lag_win1, opt_phi_err_win1, opt_lag_err_win1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+            phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win1, tr_T)         
+            opt_phi_win1, opt_lag_win1, opt_phi_err_win1, opt_lag_err_win1, opt_eig_ratio1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
+                                                                                                                    min_eig_ratios=min_eig_ratios, method="dbscan")
             if not opt_phi_win1:
                 continue # If didn't cluster, skip station
             # 2.b. For second window:
@@ -1249,22 +1271,49 @@ class create_splitting_object:
                                                                                                            win_end_idxs_partition2, sws_method="EV")
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
-            phis, lags, phi_errs, lag_errs = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win2, tr_T)         
-            opt_phi_win2, opt_lag_win2, opt_phi_err_win2, opt_lag_err_win2 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+            phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win2, tr_T)         
+            opt_phi_win2, opt_lag_win2, opt_phi_err_win2, opt_lag_err_win2, opt_eig_ratio2 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
+                                                                                                                    min_eig_ratios=min_eig_ratios, method="dbscan")
             if not opt_phi_win2:
                 continue # If didn't cluster, skip station
             # 2.c. Calculate weighted mean:
             # (weighted by eigenvalue, which is a measure of linearity)
-            min_EV_win1 = np.min(np.average(grid_search_results_all_win_EV_win1, axis=0))
-            min_EV_win2 = np.min(np.average(grid_search_results_all_win_EV_win2, axis=0))
-            opt_phi_layer2 = np.average(np.array([opt_phi_win1, opt_phi_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
-            opt_lag_layer2 = np.average(np.array([opt_lag_win1, opt_lag_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
-            opt_phi_err_layer2 = np.average(np.array([opt_phi_err_win1, opt_phi_err_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
-            opt_lag_err_layer2 = np.average(np.array([opt_lag_err_win1, opt_lag_err_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
-
+            # min_EV_win1 = opt_eig_ratio1 #np.min(np.average(grid_search_results_all_win_EV_win1, axis=0))
+            # min_EV_win2 = opt_eig_ratio2 #np.min(np.average(grid_search_results_all_win_EV_win2, axis=0))
+            # opt_phi_layer2 = np.average(np.array([opt_phi_win1, opt_phi_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
+            # opt_lag_layer2 = np.average(np.array([opt_lag_win1, opt_lag_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
+            # opt_phi_err_layer2 = np.average(np.array([opt_phi_err_win1, opt_phi_err_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
+            # opt_lag_err_layer2 = np.average(np.array([opt_lag_err_win1, opt_lag_err_win2]), weights=np.array([1./min_EV_win1, 1./min_EV_win2]))
+            # 2.c. Pick best (most linearised) result:
+            min_EV_both_wins = np.array([opt_eig_ratio1, opt_eig_ratio2])
+            min_EV_both_wins[min_EV_both_wins==0] = 1e6 # Remove effect of any exact zero eigenvalues (spurious results), while preseerving indices
+            best_win_idx = np.argmin(min_EV_both_wins)
+            opt_phi_layer2 = np.array([opt_phi_win1, opt_phi_win2])[best_win_idx]
+            opt_lag_layer2 = np.array([opt_lag_win1, opt_lag_win2])[best_win_idx]
+            opt_phi_err_layer2 = np.array([opt_phi_err_win1, opt_phi_err_win2])[best_win_idx]
+            opt_lag_err_layer2 = np.array([opt_lag_err_win1, opt_lag_err_win2])[best_win_idx]
+                
             # 3. Remove effect of layer 2 anisotropy:
             st_ZNE_curr_sws_layer_2_removed = remove_splitting(st_ZNE_curr, opt_phi_layer2, opt_lag_layer2, back_azi, event_inclin_angle_at_station, return_BPA=False)
             st_LQT_curr_sws_layer_2_removed = _rotate_ZNE_to_LQT(st_ZNE_curr_sws_layer_2_removed, back_azi, event_inclin_angle_at_station)
+
+            # TESTING!!!
+            # print([opt_phi_win1, opt_phi_win2])
+            # print([opt_lag_win1, opt_lag_win2])
+            # print([opt_eig_ratio1, opt_eig_ratio2])
+            # fig, ax = plt.subplots(figsize=(3,3))
+            # ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data, c='k')
+            # ax.plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??E")[0].data, st_ZNE_curr_sws_layer_2_removed.select(channel="??N")[0].data, c='g')
+            # plt.show()
+            # fig, ax = plt.subplots(nrows=2, figsize=(6,4), sharex=True)
+            # ax[0].plot(st_ZNE_curr.select(channel="??N")[0].data, c='k')
+            # ax[0].plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??N")[0].data, c='g')
+            # ax[1].plot(st_ZNE_curr.select(channel="??E")[0].data, c='k')
+            # ax[1].plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??E")[0].data, c='g')
+            # ax[0].vlines(win_end_idxs_partition1, -1000, 1000)
+            # ax[1].vlines(win_end_idxs_partition1, -1000, 1000)
+            # plt.show()
+            # END TESTING!!!
 
             # 4. Find splitting parameters for layer 1:
             # (by perform splitting for entire trace post layer 2 correction)
@@ -1274,7 +1323,7 @@ class create_splitting_object:
                                                                                                            win_end_idxs, sws_method="EV")
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
-            phis, lags, phi_errs, lag_errs = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_layer1, tr_T)         
+            phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_layer1, tr_T)         
             opt_phi_layer1, opt_lag_layer1, opt_phi_err_layer1, opt_lag_err_layer1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
             if not opt_phi_layer1:
                 continue # If didn't cluster, skip station
