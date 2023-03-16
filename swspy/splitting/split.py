@@ -285,7 +285,8 @@ def remove_splitting(st_ZNE_uncorr, phi, dt, back_azi, event_inclin_angle_at_sta
         tr_tmp_P = st_BPA_corr.select(channel="??P")[0] # (note that P=Q in st_BPA_corr)
         tr_tmp_A = st_BPA_corr.select(channel="??A")[0] # (note that A=T in st_BPA_corr)
         #!tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(tr_tmp_P.data, tr_tmp_A.data, np.deg2rad(src_pol))
-        ###!!!tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_ZNE_corr.select(channel="??N")[0].data, -st_ZNE_corr.select(channel="??E")[0].data, np.deg2rad(src_pol))
+        ###!!!tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_ZNE_corr.select(channel="??N")[0].data, -st_ZNE_corr.select(channel="??E")[0].data, 
+        #                                                       np.deg2rad(src_pol))
         tr_tmp_P.data, tr_tmp_A.data = _rotate_QT_comps(st_LQT_corr.select(channel="??Q")[0].data, st_LQT_corr.select(channel="??T")[0].data, np.deg2rad(src_pol - back_azi))
         # Append P channel:
         st_ZNE_corr.append(tr_tmp_P)
@@ -950,8 +951,14 @@ class create_splitting_object:
         except TypeError:
             # If cannot get parameters becuase splitting clustering failed, skip station:
             raise CustomError("Cannot get splitting parameters because splitting clustering failed.")
-        st_ZNE_curr_sws_corrected_layer_1_and_2 = remove_splitting(st_ZNE_curr_sws_corrected_layer_2, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station,
+        st_ZNE_curr_sws_corrected_layer_2_ZNE_only = obspy.Stream() # (Note: So that don't duplicate B,P,A,F,S components)
+        st_ZNE_curr_sws_corrected_layer_2_ZNE_only.append(st_ZNE_curr_sws_corrected_layer_2.select(channel="??Z")[0])
+        st_ZNE_curr_sws_corrected_layer_2_ZNE_only.append(st_ZNE_curr_sws_corrected_layer_2.select(channel="??N")[0])
+        st_ZNE_curr_sws_corrected_layer_2_ZNE_only.append(st_ZNE_curr_sws_corrected_layer_2.select(channel="??E")[0])
+        st_ZNE_curr_sws_corrected_layer_1_and_2 = remove_splitting(st_ZNE_curr_sws_corrected_layer_2_ZNE_only, phi_curr, dt_curr, back_azi, event_inclin_angle_at_station,
                                                     return_BPA=True, src_pol=src_pol_curr) # (Note: Uses src_pol in horizontal direction, as calc. P and A from horizontal dir at the moment)
+        del st_ZNE_curr_sws_corrected_layer_2_ZNE_only
+        gc.collect()
 
         return st_ZNE_curr, st_ZNE_curr_sws_corrected_layer_2, st_ZNE_curr_sws_corrected_layer_1_and_2
     
@@ -988,7 +995,7 @@ class create_splitting_object:
             sys.exit()
 
         # Create datastores:
-        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi_from_Q': [], 'phi_from_N': [], 'phi_from_U': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'src_pol_from_N': [], 'src_pol_from_U': [], 'src_pol_from_N_err': [], 'src_pol_from_U_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
+        self.sws_result_df = pd.DataFrame(data={'station': [], 'phi_from_Q': [], 'phi_from_N': [], 'phi_from_U': [], 'phi_err': [], 'dt': [], 'dt_err': [], 'src_pol_from_N': [], 'src_pol_from_U': [], 'src_pol_from_N_err': [], 'src_pol_from_U_err': [], 'Q_w': [], 'lambda2/lambda1 ratio': [], 'ray_back_azi': [], 'ray_inc': []})
         if return_clusters_data:
             self.clustering_info = {}
         self.phi_dt_grid_average = {}
@@ -1127,7 +1134,7 @@ class create_splitting_object:
                 ray_back_azi = np.nan
                 ray_inc_at_station = np.nan
             # And append data to result df:
-            df_tmp = pd.DataFrame(data={'station': [station], 'phi_from_Q': [opt_phi], 'phi_from_N': [opt_phi_vec[0]], 'phi_from_U': [opt_phi_vec[1]], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [Q_w], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
+            df_tmp = pd.DataFrame(data={'station': [station], 'phi_from_Q': [opt_phi], 'phi_from_N': [opt_phi_vec[0]], 'phi_from_U': [opt_phi_vec[1]], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [Q_w], 'lambda2/lambda1 ratio': [opt_eig_ratio], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
             self.sws_result_df = self.sws_result_df.append(df_tmp)
             try:
                 opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
@@ -1173,13 +1180,13 @@ class create_splitting_object:
         sws_result_df_out = pd.DataFrame(data={'station': [], 'phi_from_Q': [], 'phi_from_N': [], 
                                                 'phi_from_U': [], 'phi_err': [], 'dt': [], 'dt_err': [], 
                                                 'src_pol_from_N': [], 'src_pol_from_U': [], 'src_pol_from_N_err': [], 
-                                                'src_pol_from_U_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
+                                                'src_pol_from_U_err': [], 'Q_w': [], 'lambda2/lambda1 ratio': [], 'ray_back_azi': [], 'ray_inc': []})
         self.sws_multi_layer_result_df = pd.DataFrame(data={'station': [], 'phi1_from_Q': [], 'phi1_from_N': [], 
                                                 'phi1_from_U': [], 'phi1_err': [], 'dt1': [], 'dt1_err': [], 
                                                 'phi1_from_Q': [], 'phi1_from_N': [], 'phi1_from_U': [], 'phi1_err': [], 
                                                 'dt1': [], 'dt1_err': [], 
                                                 'src_pol_from_N': [], 'src_pol_from_U': [], 'src_pol_from_N_err': [], 
-                                                'src_pol_from_U_err': [], 'Q_w': [], 'ray_back_azi': [], 'ray_inc': []})
+                                                'src_pol_from_U_err': [], 'Q_w': [], 'lambda2/lambda1 ratio': [], 'lambda2/lambda1 ratio1': [], 'lambda2/lambda1 ratio2': [], 'ray_back_azi': [], 'ray_inc': []})
         self.phi_dt_grid_average = {}
         self.event_station_win_idxs = {}
 
@@ -1291,6 +1298,7 @@ class create_splitting_object:
             opt_lag_layer2 = np.array([opt_lag_win1, opt_lag_win2])[best_win_idx]
             opt_phi_err_layer2 = np.array([opt_phi_err_win1, opt_phi_err_win2])[best_win_idx]
             opt_lag_err_layer2 = np.array([opt_lag_err_win1, opt_lag_err_win2])[best_win_idx]
+            opt_eig_ratio_layer2 = np.min(min_EV_both_wins)
                 
             # 3. Remove effect of layer 2 anisotropy:
             st_ZNE_curr_sws_layer_2_removed = remove_splitting(st_ZNE_curr, opt_phi_layer2, opt_lag_layer2, back_azi, event_inclin_angle_at_station, return_BPA=False)
@@ -1305,7 +1313,8 @@ class create_splitting_object:
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
             phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_layer1, tr_T)         
-            opt_phi_layer1, opt_lag_layer1, opt_phi_err_layer1, opt_lag_err_layer1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, method="dbscan")
+            opt_phi_layer1, opt_lag_layer1, opt_phi_err_layer1, opt_lag_err_layer1, opt_eig_ratio_layer1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
+                                                                                                                            min_eig_ratios=min_eig_ratios, method="dbscan")
             if not opt_phi_layer1:
                 continue # If didn't cluster, skip station
             
@@ -1317,26 +1326,7 @@ class create_splitting_object:
             src_pol_deg, src_pol_deg_err = _find_src_pol(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, 
                                                             st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, 
                                                             st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data)
-
-            # TESTING!!!
-            # fig, ax = plt.subplots(figsize=(3,3))
-            # ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data, c='k')
-            # ax.plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??E")[0].data, st_ZNE_curr_sws_layer_2_removed.select(channel="??N")[0].data, c='g')
-            # ax.plot(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='r')
-            # plt.show()
-            # fig, ax = plt.subplots(nrows=2, figsize=(6,4), sharex=True)
-            # ax[0].plot(st_ZNE_curr.select(channel="??N")[0].data, c='k')
-            # ax[0].plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??N")[0].data, c='g')
-            # ax[0].plot(st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='r')
-            # ax[1].plot(st_ZNE_curr.select(channel="??E")[0].data, c='k')
-            # ax[1].plot(st_ZNE_curr_sws_layer_2_removed.select(channel="??E")[0].data, c='g')
-            # ax[1].plot(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, c='r')
-            # ax[0].vlines(win_end_idxs_partition1, -1000, 1000)
-            # ax[1].vlines(win_end_idxs_partition1, -1000, 1000)
-            # plt.show()
-            # END TESTING!!!
-
-            del st_ZNE_curr, st_ZNE_curr_sws_corrected, st_ZNE_curr_sws_layer_2_removed, st_LQT_curr_sws_layer_2_removed
+            del st_ZNE_curr, st_ZNE_curr_sws_layer_2_removed, st_LQT_curr_sws_layer_2_removed
             gc.collect()
 
             # 6. Convert phi in terms of clockwise from Q to relative to N and Z up:
@@ -1346,7 +1336,16 @@ class create_splitting_object:
             # For layer 2:
             opt_phi_vec_layer2 = self._convert_phi_from_Q_to_NZ_coords(back_azi, event_inclin_angle_at_station, opt_phi_layer2)
 
-            # 7. And append data to overall datastore:
+            # 7. Calculate overall eigenvalue ratio (measure of linearity):
+            st_tmp = _rotate_ZNE_to_LQT(st_ZNE_curr_sws_corrected, back_azi, event_inclin_angle_at_station)
+            xy_arr = np.vstack((st_tmp.select(channel="??T")[0].data, st_tmp.select(channel="??Q")[0].data))
+            lambdas_unsort = np.linalg.eigvalsh(np.cov(xy_arr))
+            lambdas = np.sort(lambdas_unsort)
+            opt_eig_ratio = lambdas[0] / lambdas[1] 
+            del st_ZNE_curr_sws_corrected, st_tmp, xy_arr
+            gc.collect()
+
+            # 8. And append data to overall datastore:
             # Find ray path data to output:
             if self.nonlinloc_event_path:
                 # If nonlinloc supplied data:
@@ -1363,11 +1362,11 @@ class create_splitting_object:
             # And append data to result dfs:
             df_tmp = pd.DataFrame(data={'station': [station], 'phi1_from_Q': [opt_phi_layer1], 'phi1_from_N': [opt_phi_vec_layer1[0]], 'phi1_from_U': [opt_phi_vec_layer1[1]], 'phi1_err': [opt_phi_err_layer1], 'dt1': [opt_lag_layer1], 'dt1_err': [opt_lag_err_layer1], 
                                     'phi2_from_Q': [opt_phi_layer2], 'phi2_from_N': [opt_phi_vec_layer2[0]], 'phi2_from_U': [opt_phi_vec_layer2[1]], 'phi2_err': [opt_phi_err_layer2], 'dt2': [opt_lag_layer2], 'dt2_err': [opt_lag_err_layer2], 
-                                        'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [np.nan], 
-                                        'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
+                                        'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [np.nan],  'lambda2/lambda1 ratio': [opt_eig_ratio],
+                                         'lambda2/lambda1 ratio1': [opt_eig_ratio_layer1], 'lambda2/lambda1 ratio2': [opt_eig_ratio_layer2], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
             self.sws_multi_layer_result_df = self.sws_multi_layer_result_df.append(df_tmp)
             df_tmp = pd.DataFrame(data={'station': [station], 'phi_from_Q': [opt_phi_layer1], 'phi_from_N': [opt_phi_vec_layer1[0]], 'phi_from_U': [opt_phi_vec_layer1[1]], 'phi_err': [opt_phi_err_layer1], 'dt': [opt_lag_layer1], 'dt_err': [opt_lag_err_layer1], 
-                                        'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [np.nan], 
+                                        'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [np.nan],  'lambda2/lambda1 ratio': [opt_eig_ratio],
                                         'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
             sws_result_df_out = sws_result_df_out.append(df_tmp)
             try:
@@ -1402,6 +1401,7 @@ class create_splitting_object:
             if self.sws_multi_layer_result_df is not None:
                 print("Passed multi-layer result, therefore plotting this result.")
                 # (Note: Get layer 2 correction, as intermediate stage correction, and layer 1+2 correction is full correction)
+                del st_ZNE_curr_sws_corrected
                 st_ZNE_curr, st_ZNE_curr_sws_corrected_layer_2, st_ZNE_curr_sws_corrected = self._get_uncorr_and_corr_waveforms_multi_layer(station)
             # Splitting parameters:
             try:
@@ -1413,6 +1413,7 @@ class create_splitting_object:
                 src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N'])
                 src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N_err'])
                 Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
+                opt_eig_ratio_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['lambda2/lambda1 ratio'])
             except TypeError:
                 # If cannot get parameters becuase splitting clustering failed, skip station:
                 print("Cannot get splitting parameters because splitting clustering failed. Skipping station:", 
@@ -1511,6 +1512,10 @@ class create_splitting_object:
             wfs_ax_E.plot(t, st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, c='#D73215')
             wfs_ax_P_corr.plot(t, st_ZNE_curr_sws_corrected.select(channel="??P")[0].data, c='#D73215') #c='#1E69A9')
             wfs_ax_A_corr.plot(t, st_ZNE_curr_sws_corrected.select(channel="??A")[0].data, c='#D73215') #c='#1E69A9')
+            # Plot intermediate post layer 2 correction (multi-layer splitting):
+            if self.sws_multi_layer_result_df is not None:
+                wfs_ax_P_uncorr.plot(t, st_ZNE_curr_sws_corrected_layer_2.select(channel="??P")[0].data, c='#AEE100', alpha=0.5)
+                wfs_ax_A_uncorr.plot(t, st_ZNE_curr_sws_corrected_layer_2.select(channel="??A")[0].data, c='#AEE100', alpha=0.5)
             fs = st_ZNE_curr.select(channel="??N")[0].stats.sampling_rate
             for i in range(len(self.event_station_win_idxs[station]['win_start_idxs'])):
                 wfs_ax_N.axvline(x = self.event_station_win_idxs[station]['win_start_idxs'][i] / fs, c='k', alpha=0.25)
@@ -1549,6 +1554,10 @@ class create_splitting_object:
             ne_uncorr_ax.plot(st_ZNE_curr.select(channel="??E")[0].data, st_ZNE_curr.select(channel="??N")[0].data, c='k')
             ne_uncorr_ax.set_xlim(-1.1*max_amp, 1.1*max_amp)
             ne_uncorr_ax.set_ylim(-1.1*max_amp, 1.1*max_amp)
+            # Plot intermediate post layer 2 correction (multi-layer splitting):
+            if self.sws_multi_layer_result_df is not None:
+                ne_uncorr_ax.plot(st_ZNE_curr_sws_corrected_layer_2.select(channel="??E")[0].data, 
+                                    st_ZNE_curr_sws_corrected_layer_2.select(channel="??N")[0].data, c='#AEE100', alpha=0.5)
             # Corr NE:
             ne_corr_ax.plot(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, 
                                                             st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='#D73215')
@@ -1593,8 +1602,9 @@ class create_splitting_object:
             text_ax.text(0,-3,"$\phi$ from N : "+"{0:0.1f}".format(phi_from_N_curr)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_curr)+"$^o$", fontsize='small')
             text_ax.text(0,-4,''.join(("src pol from N: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
             text_ax.text(0,-5,"Coord. sys. : "+self.coord_system, fontsize='small')
+            text_ax.text(0,-6,"$\lambda_2$/$\lambda_1$: "+str(round(opt_eig_ratio_curr, 3)), fontsize='small')
             if Q_w_curr <= 1.1:
-                text_ax.text(0,-6,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
+                text_ax.text(0,-7,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
             text_ax.set_xlim(-2,10)
             text_ax.set_ylim(-10,2)
 
@@ -1612,10 +1622,10 @@ class create_splitting_object:
             ne_corr_ax.set_xlabel('E')
             ne_corr_ax.set_ylabel('N')
             phi_dt_ax.set_xlabel('$\delta$ t (s)')
-            phi_dt_ax.set_ylabel('$\phi$ from Q ($^o$)')
-
-            # And plot some multi-layer info, if specified:
-            # HERE!!!
+            if self.sws_multi_layer_result_df is None:
+                phi_dt_ax.set_ylabel('$\phi$ from Q ($^o$)')
+            else:
+                phi_dt_ax.set_ylabel('$\phi_{layer 1}$ from Q ($^o$)')
 
             # plt.colorbar()
             # plt.tight_layout()
