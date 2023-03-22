@@ -1,0 +1,399 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>swspy.io package &mdash; swspy 0.0.1 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="swspy.splitting package" href="swspy.splitting.html" />
+    <link rel="prev" title="swspy.automate package" href="swspy.automate.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> swspy
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinate_system.html">Coordinate System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">swspy</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="swspy.html">swspy package</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="swspy.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="swspy.automate.html">swspy.automate package</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">swspy.io package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="swspy.splitting.html">swspy.splitting package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="swspy.html#module-swspy">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">swspy</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="modules.html">swspy</a> &raquo;</li>
+        
+          <li><a href="swspy.html">swspy package</a> &raquo;</li>
+        
+      <li>swspy.io package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/swspy.io.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="swspy-io-package">
+<h1>swspy.io package<a class="headerlink" href="#swspy-io-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-swspy.io.load">
+<span id="swspy-io-load-module"></span><h2>swspy.io.load module<a class="headerlink" href="#module-swspy.io.load" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="swspy.io.load.load_waveforms">
+<em class="property">class </em><code class="sig-prename descclassname">swspy.io.load.</code><code class="sig-name descname">load_waveforms</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">starttime</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">endtime</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">archive_vs_file</span><span class="o">=</span><span class="default_value">'archive'</span></em>, <em class="sig-param"><span class="n">downsample_factor</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">upsample_factor</span><span class="o">=</span><span class="default_value">1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.io.load.load_waveforms" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A class to load waveforms from file or an archive.</p>
+<p>Notes:
+- Will currently only load archived data from the format year/jul_day/<em>station</em>
+- Does not currently remove instrument response</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<em>str</em>) – The path to the overall data archive or file to load waveforms from.</p></li>
+<li><p><strong>archive_vs_file</strong> (<em>str</em><em> (</em><em>default = &quot;archive&quot;</em><em>)</em>) – Describes what the parameter &lt;path&gt; is associated with. If archive,
+then &lt;path&gt; is to an archive. If file, then &lt;path&gt; is the path to a
+obspy readable file (e.g. mseed). Default is archive.</p></li>
+<li><p><strong>starttime</strong> (<em>obspy UTCDateTime object</em>) – The starttime to cut the data by. Any filters are applied before
+cutting. If not supplied then will load all data from the supplied
+file path (archive_vs_file must = file for this to be valid).</p></li>
+<li><p><strong>endtime</strong> (<em>obspy UTCDateTime object</em>) – The endtime to cut the data by. Any filters are applied before
+cutting. If not supplied then will load all data from the supplied
+file path (archive_vs_file must = file for this to be valid).</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt id="swspy.io.load.load_waveforms.filter">
+<code class="sig-name descname">filter</code><a class="headerlink" href="#swspy.io.load.load_waveforms.filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>If True, then filters the data by &lt;filter_freq_min_max&gt;.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool (default = False)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="swspy.io.load.load_waveforms.filter_freq_min_max">
+<code class="sig-name descname">filter_freq_min_max</code><a class="headerlink" href="#swspy.io.load.load_waveforms.filter_freq_min_max" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter parameters for filtering the data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list of two floats (default = [2.0, 20.0])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="swspy.io.load.load_waveforms.zero_phase">
+<code class="sig-name descname">zero_phase</code><a class="headerlink" href="#swspy.io.load.load_waveforms.zero_phase" title="Permalink to this definition">¶</a></dt>
+<dd><p>If True, applies zero phase filter (if &lt;filter&gt; = True).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool (default = True)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="swspy.io.load.load_waveforms.remove_response">
+<code class="sig-name descname">remove_response</code><a class="headerlink" href="#swspy.io.load.load_waveforms.remove_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>If True, removes instrument response using the response file
+specified by &lt;response_file&gt;.
+(Note: Not currently implemented!)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool (default = False)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="swspy.io.load.load_waveforms.response_file_path">
+<code class="sig-name descname">response_file_path</code><a class="headerlink" href="#swspy.io.load.load_waveforms.response_file_path" title="Permalink to this definition">¶</a></dt>
+<dd><p>Path to response file used to remove instrument response.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str (default = None)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="swspy.io.load.load_waveforms.downsample_factor">
+<code class="sig-name descname">downsample_factor</code><a class="headerlink" href="#swspy.io.load.load_waveforms.downsample_factor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Factor by which to downsample the data, to speed up processing.
+If &lt;downsample_factor&gt; = 1, obviously doens’t apply downsampling.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int (default = 1)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="swspy.io.load.load_waveforms.upsample_factor">
+<code class="sig-name descname">upsample_factor</code><a class="headerlink" href="#swspy.io.load.load_waveforms.upsample_factor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Factor by which to upsample the data, to smooth waveforms for enhanced
+timeshift processing. Currently uses weighted average slopes
+interpolation method.
+If &lt;upsample_factor&gt; = 1, doens’t apply upsampling.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int (default = 1)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="swspy.io.load.load_waveforms.read_waveform_data">
+<code class="sig-name descname">read_waveform_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">stations</span><span class="o">=</span><span class="default_value">[]</span></em>, <em class="sig-param"><span class="n">channels</span><span class="o">=</span><span class="default_value">'*'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.io.load.load_waveforms.read_waveform_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read in the waveform data for the specified time.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="id0">
+<code class="sig-name descname">read_waveform_data</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">stations</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">channels</span><span class="o">=</span><span class="default_value">'*'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#id0" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to read waveform data. Filters if specified.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stations</strong> (<em>list of strs</em><em> (</em><em>default = None</em><em>)</em>) – List of stations to import. If None then imports all
+available stations (default).</p></li>
+<li><p><strong>channels</strong> (<em>str</em><em> (</em><em>default = &quot;*&quot;</em><em>)</em>) – List of channels to import. Default is to import all channels.</p></li>
+<li><p><strong>Returns</strong> – </p></li>
+<li><p><strong>st</strong> (<em>obspy stream</em>) – Obspy stream object containing all the data requested.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-swspy.io">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-swspy.io" title="Permalink to this headline">¶</a></h2>
+<p>Submodule for dealing with input and output management</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="swspy.splitting.html" class="btn btn-neutral float-right" title="swspy.splitting package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="swspy.automate.html" class="btn btn-neutral float-left" title="swspy.automate package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2021, Tom S Hudson
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
