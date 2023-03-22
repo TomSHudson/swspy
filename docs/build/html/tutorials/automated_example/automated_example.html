@@ -38,7 +38,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="swspy" href="../../modules.html" />
-    <link rel="prev" title="2. Example of shear-wave splitting applied to a set of SKS splitting measurements" href="../sks_example/sks_example.html" /> 
+    <link rel="prev" title="2. Single earthquake example (for multiple receiver observations)" href="../single_event_example/single_event_example.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -88,8 +88,8 @@
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../coordinate_system.html">Coordinate System</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../../tutorials.html">Tutorials</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="../icequake_example/icequake_example.html">1. Example of shear-wave splitting applied to an icequake from Rutford Ice Stream, Antarctica</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../sks_example/sks_example.html">2. Example of shear-wave splitting applied to a set of SKS splitting measurements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../single_measurement_example/single_measurement_example.html">1. Example of single source-receiver measurement for ScS arrival, manually specifying input paramters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../single_event_example/single_event_example.html">2. Single earthquake example (for multiple receiver observations)</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">3. Example of how to run automated multi-event manager</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#Specify-parameters-for-processing:">3.1. Specify parameters for processing:</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#Run-the-processing-for-multiple-events:">3.2. Run the processing for multiple events:</a></li>
@@ -423,10 +423,11 @@ div.rendered_html tbody tr:hover {
 <div class="section" id="Example-of-how-to-run-automated-multi-event-manager">
 <h1><span class="section-number">3. </span>Example of how to run automated multi-event manager<a class="headerlink" href="#Example-of-how-to-run-automated-multi-event-manager" title="Permalink to this headline">¶</a></h1>
 <p>This example shows how the code can be applied to undertake shear-wave splitting analysis for many events, with the data from the SKS example.</p>
+<p>Here, the S-picks are defined as 10 s into the sac data for each event.</p>
 <p>Data is from:</p>
 <p>J Asplet, J Wookey, M Kendall. (2020) “A potential post-perovskite province in D″ beneath the Eastern Pacific: evidence from new analysis of discrepant SKS–SKKS shear-wave splitting”. GJI.</p>
-<div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -435,17 +436,8 @@ div.rendered_html tbody tr:hover {
 </pre></div>
 </div>
 </div>
-<div class="nboutput nblast docutils container">
-<div class="prompt empty docutils container">
-</div>
-<div class="output_area docutils container">
-<div class="highlight"><pre>
-The autoreload extension is already loaded. To reload it, use:
-  %reload_ext autoreload
-</pre></div></div>
-</div>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -467,7 +459,7 @@ The autoreload extension is already loaded. To reload it, use:
 <p>First one specifies all the relevent parameters for the splitting analysis. This changes various parameters from their default values to something more appropriate for a particular dataset.</p>
 <p>Note: For a detailed description of each parameter/attribute, do help(proc_many_events()) or read the documentation.</p>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -479,7 +471,7 @@ The autoreload extension is already loaded. To reload it, use:
 </div>
 </div>
 <div class="nbinput nblast docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -495,7 +487,7 @@ The autoreload extension is already loaded. To reload it, use:
 <span class="n">sws_proc_obj</span><span class="o">.</span><span class="n">n_win</span> <span class="o">=</span> <span class="mi">10</span>
 <span class="n">sws_proc_obj</span><span class="o">.</span><span class="n">downsample_factor</span> <span class="o">=</span> <span class="mi">1</span> <span class="c1">#4</span>
 <span class="n">sws_proc_obj</span><span class="o">.</span><span class="n">coord_system</span> <span class="o">=</span> <span class="s2">&quot;ZNE&quot;</span>
-<span class="n">sws_proc_obj</span><span class="o">.</span><span class="n">sws_method</span> <span class="o">=</span> <span class="s2">&quot;EV_and_XC&quot;</span>
+<span class="n">sws_proc_obj</span><span class="o">.</span><span class="n">sws_method</span> <span class="o">=</span> <span class="s2">&quot;EV&quot;</span>
 <span class="n">sws_proc_obj</span><span class="o">.</span><span class="n">output_plots</span> <span class="o">=</span> <span class="kc">False</span>
 
 </pre></div>
@@ -506,7 +498,7 @@ The autoreload extension is already loaded. To reload it, use:
 <h2><span class="section-number">3.2. </span>Run the processing for multiple events:<a class="headerlink" href="#Run-the-processing-for-multiple-events:" title="Permalink to this headline">¶</a></h2>
 <p>After specifying the various parameters, one can run the analysis over multiple events.</p>
 <div class="nbinput docutils container">
-<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
 </pre></div>
 </div>
 <div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
@@ -525,26 +517,37 @@ The autoreload extension is already loaded. To reload it, use:
 <div class="highlight"><pre>
 Processing for event UID: 116A_2006360_122621_SKKS (1/11)
 Saved sws result to: outputs/data/20061226125151_sws_result.csv
+Saved sws wfs to: outputs/data/20061226125151_wfs_*.mseed
 Processing for event UID: COR_2008321_170232_SKS (2/11)
 Saved sws result to: outputs/data/20081116172713_sws_result.csv
+Saved sws wfs to: outputs/data/20081116172713_wfs_*.mseed
 Processing for event UID: DAN_2003174_121231_ScS (3/11)
 Saved sws result to: outputs/data/20030623123100_sws_result.csv
+Saved sws wfs to: outputs/data/20030623123100_wfs_*.mseed
 Processing for event UID: FACU_2009297_144044_SKS (4/11)
 Saved sws result to: outputs/data/20091024150503_sws_result.csv
+Saved sws wfs to: outputs/data/20091024150503_wfs_*.mseed
 Processing for event UID: HUMO_2008321_170232_SKS (5/11)
 Saved sws result to: outputs/data/20081116172718_sws_result.csv
+Saved sws wfs to: outputs/data/20081116172718_wfs_*.mseed
 Processing for event UID: IRON_2009297_144044_SKS (6/11)
 Saved sws result to: outputs/data/20091024150513_sws_result.csv
+Saved sws wfs to: outputs/data/20091024150513_wfs_*.mseed
 Processing for event UID: K20A_2009003_223342_SKKS (7/11)
 Saved sws result to: outputs/data/20090103225943_sws_result.csv
+Saved sws wfs to: outputs/data/20090103225943_wfs_*.mseed
 Processing for event UID: L07A_2007256_094844_SKS (8/11)
 Saved sws result to: outputs/data/20070913101323_sws_result.csv
+Saved sws wfs to: outputs/data/20070913101323_wfs_*.mseed
 Processing for event UID: L24A_2009003_194355_SKKS (9/11)
 Saved sws result to: outputs/data/20090103201022_sws_result.csv
+Saved sws wfs to: outputs/data/20090103201022_wfs_*.mseed
 Processing for event UID: NE81_2006360_122621_SKKS (10/11)
 Saved sws result to: outputs/data/20061226125216_sws_result.csv
+Saved sws wfs to: outputs/data/20061226125216_wfs_*.mseed
 Processing for event UID: RDM_2003174_121231_ScS (11/11)
 Saved sws result to: outputs/data/20030623123110_sws_result.csv
+Saved sws wfs to: outputs/data/20030623123110_wfs_*.mseed
 Finished processing shear-wave splitting for data in: data
 Data saved to: outputs
 </pre></div></div>
@@ -572,7 +575,7 @@ Data saved to: outputs
         <a href="../../modules.html" class="btn btn-neutral float-right" title="swspy" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="../sks_example/sks_example.html" class="btn btn-neutral float-left" title="2. Example of shear-wave splitting applied to a set of SKS splitting measurements" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="../single_event_example/single_event_example.html" class="btn btn-neutral float-left" title="2. Single earthquake example (for multiple receiver observations)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

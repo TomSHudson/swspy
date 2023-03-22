@@ -1,2 +1,2 @@
-station,phi,phi_err,dt,dt_err,Q_w
-K20A,-86.0,15.0,2.05,1.13125,0.0
+station,phi_from_Q,phi_from_N,phi_from_U,phi_err,dt,dt_err,src_pol_from_N,src_pol_from_U,src_pol_from_N_err,src_pol_from_U_err,Q_w,lambda2/lambda1 ratio,ray_back_azi,ray_inc
+K20A,-15.0,-85.2616577148,90.0,9.5,2.1,0.7,113.188329754,59.7417008411,8.89494832797,62.9067275525,,0.0408837031825,289.738342285,0.0

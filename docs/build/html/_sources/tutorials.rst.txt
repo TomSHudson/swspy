@@ -7,6 +7,6 @@ Included here are a number of tutorials showing examples of how to use swspy.
    :numbered:
    :titlesonly:
 
-   tutorials/icequake_example/icequake_example
-   tutorials/sks_example/sks_example
+   tutorials/single_measurement_example/single_measurement_example
+   tutorials/single_event_example/single_event_example
    tutorials/automated_example/automated_example
