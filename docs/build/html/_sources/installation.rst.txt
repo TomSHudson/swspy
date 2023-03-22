@@ -6,7 +6,22 @@ Prerequisites
 -------------
 The package has the following dependencies:
 
-TBC!!!
+numpy
+matplotlib
+mpl_toolkits
+pandas
+numba
+scipy
+sklearn
+obspy
+sys
+os
+glob
+subprocess
+gc
+time
+pathlib
+NonLinLocPy
 
 Installing
 ----------
