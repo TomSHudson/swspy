@@ -2,6 +2,6 @@ numpy
 scipy
 pandas
 matplotlib
-skikit-learn
+scikit-learn
 obspy
 NonLinLocPy
