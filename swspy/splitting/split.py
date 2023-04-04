@@ -1568,7 +1568,8 @@ class create_splitting_object:
             Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
             Z = self.phi_dt_grid_average[station]
             # phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
-            phi_dt_ax.contourf(X, Y, Z, levels=20, cmap="magma")
+            CS = phi_dt_ax.contourf(X, Y, Z, levels=20, cmap="magma")
+            CS2 = phi_dt_ax.contour(CS, levels=CS.levels[1::2], colors='w')
             phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g')
 
             # Add clustering data if available:
