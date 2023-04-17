@@ -1569,8 +1569,8 @@ class create_splitting_object:
             Z = self.phi_dt_grid_average[station]
             # phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
             CS = phi_dt_ax.contourf(X, Y, Z, levels=20, cmap="magma")
-            CS2 = phi_dt_ax.contour(CS, levels=CS.levels[1::2], colors='w')
-            phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g')
+            CS2 = phi_dt_ax.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.5)
+            phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g', capsize=5)
 
             # Add clustering data if available:
             if self.clustering_info:
@@ -1651,6 +1651,7 @@ class create_splitting_object:
             # plt.colorbar()
             # plt.tight_layout()
             if outdir:
+                os.makedirs(outdir, exist_ok=True)
                 plt.savefig(os.path.join(outdir, ''.join((self.event_uid, "_", station, ".png"))), dpi=300)
             if suppress_direct_plotting:
                 plt.ioff()
@@ -1663,8 +1664,9 @@ class create_splitting_object:
         """Function to save output. Output is a csv file with all the splitting data for the event, 
         for all stations. Saves result as <event_uid>, to <outdir>."""
         # Create outdir, if doesn't exist:
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
+        os.makedirs(outdir, exist_ok=True)
+        # if not os.path.exists(outdir):
+        #     os.makedirs(outdir)
         # ANd write data to file:
         fname_out = os.path.join(outdir, ''.join((self.event_uid, "_sws_result.csv")))
         self.sws_result_df.to_csv(fname_out, index=False)
@@ -1675,8 +1677,9 @@ class create_splitting_object:
         """Function to save waveforms outputs. Outputs are unccorrected and corrected waveforms for 
         all events. Saves result as <event_uid>.mseed, to <outdir>."""
         # Create outdir, if doesn't exist:
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)
+        os.makedirs(outdir, exist_ok=True)
+        # if not os.path.exists(outdir):
+        #     os.makedirs(outdir)
         # Loop over stations, appending data to streams:
         st_uncorr_out = obspy.Stream()
         st_corr_out = obspy.Stream()
