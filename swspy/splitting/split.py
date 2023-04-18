@@ -1502,20 +1502,20 @@ class create_splitting_object:
                 max_amp = np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??P")[0].data))
             if np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??A")[0].data)) > max_amp:
                 max_amp = np.max(np.abs(st_ZNE_curr_sws_corrected.select(channel="??A")[0].data))
-            wfs_ax_Z.plot(t, st_ZNE_curr.select(channel="??Z")[0].data, c='k')
+            wfs_ax_Z.plot(t, st_ZNE_curr.select(channel="??Z")[0].data, c='k', label='before')
             wfs_ax_N.plot(t, st_ZNE_curr.select(channel="??N")[0].data, c='k')
             wfs_ax_E.plot(t, st_ZNE_curr.select(channel="??E")[0].data, c='k')
             wfs_ax_P_uncorr.plot(t, st_ZNE_curr.select(channel="??P")[0].data, c='k')
             wfs_ax_A_uncorr.plot(t, st_ZNE_curr.select(channel="??A")[0].data, c='k')
-            wfs_ax_Z.plot(t, st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data, c='#D73215')
+            wfs_ax_Z.plot(t, st_ZNE_curr_sws_corrected.select(channel="??Z")[0].data, c='#D73215', label='after')
             wfs_ax_N.plot(t, st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='#D73215')
             wfs_ax_E.plot(t, st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, c='#D73215')
             wfs_ax_P_corr.plot(t, st_ZNE_curr_sws_corrected.select(channel="??P")[0].data, c='#D73215') #c='#1E69A9')
             wfs_ax_A_corr.plot(t, st_ZNE_curr_sws_corrected.select(channel="??A")[0].data, c='#D73215') #c='#1E69A9')
             # Plot intermediate post layer 2 correction (multi-layer splitting):
             if self.sws_multi_layer_result_df is not None:
-                wfs_ax_P_uncorr.plot(t, st_ZNE_curr_sws_corrected_layer_2.select(channel="??P")[0].data, c='#AEE100', alpha=0.5)
-                wfs_ax_A_uncorr.plot(t, st_ZNE_curr_sws_corrected_layer_2.select(channel="??A")[0].data, c='#AEE100', alpha=0.5)
+                wfs_ax_P_uncorr.plot(t, st_ZNE_curr_sws_corrected_layer_2.select(channel="??P")[0].data, c='#0078B8', alpha=0.5)
+                wfs_ax_A_uncorr.plot(t, st_ZNE_curr_sws_corrected_layer_2.select(channel="??A")[0].data, c='#0078B8', alpha=0.5)
             fs = st_ZNE_curr.select(channel="??N")[0].stats.sampling_rate
             for i in range(len(self.event_station_win_idxs[station]['win_start_idxs'])):
                 wfs_ax_N.axvline(x = self.event_station_win_idxs[station]['win_start_idxs'][i] / fs, c='k', alpha=0.25)
@@ -1536,6 +1536,7 @@ class create_splitting_object:
             wfs_ax_A_uncorr.set_ylim(-1.1*max_amp, 1.1*max_amp)
             wfs_ax_P_corr.set_ylim(-1.1*max_amp, 1.1*max_amp)
             wfs_ax_A_corr.set_ylim(-1.1*max_amp, 1.1*max_amp)
+            wfs_ax_Z.legend()
 
             # Fast and slow, pre and post correction:
             fs_start_end_times = [self.event_station_win_idxs[station]['win_start_idxs'][-1] / fs,
@@ -1557,7 +1558,7 @@ class create_splitting_object:
             # Plot intermediate post layer 2 correction (multi-layer splitting):
             if self.sws_multi_layer_result_df is not None:
                 ne_uncorr_ax.plot(st_ZNE_curr_sws_corrected_layer_2.select(channel="??E")[0].data, 
-                                    st_ZNE_curr_sws_corrected_layer_2.select(channel="??N")[0].data, c='#AEE100', alpha=0.5)
+                                    st_ZNE_curr_sws_corrected_layer_2.select(channel="??N")[0].data, c='#0078B8', alpha=0.5)
             # Corr NE:
             ne_corr_ax.plot(st_ZNE_curr_sws_corrected.select(channel="??E")[0].data, 
                                                             st_ZNE_curr_sws_corrected.select(channel="??N")[0].data, c='#D73215')
@@ -1569,7 +1570,7 @@ class create_splitting_object:
             Z = self.phi_dt_grid_average[station]
             # phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
             CS = phi_dt_ax.contourf(X, Y, Z, levels=20, cmap="magma")
-            CS2 = phi_dt_ax.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.5)
+            CS2 = phi_dt_ax.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.25)
             phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g', capsize=5)
 
             # Add clustering data if available:
