@@ -16,7 +16,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import pandas as pd 
-from numba import jit, prange, set_num_threads
+from numba import jit 
 from scipy import stats, interpolate
 from sklearn import cluster
 from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering
@@ -607,9 +607,6 @@ class create_splitting_object:
         phis_labels = np.arange(-90, 90 + rotate_step_deg, rotate_step_deg)
 
         # Perform grid search:
-        # (note that numba accelerated, hence why function outside class)
-        num_threads = 4
-        set_num_threads(int(num_threads))
         grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, 
                                                                                                         n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                                                                                         grid_search_results_all_win_EV, grid_search_results_all_win_XC)
