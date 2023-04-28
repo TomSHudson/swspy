@@ -1135,7 +1135,7 @@ class create_splitting_object:
                 ray_inc_at_station = np.nan
             # And append data to result df:
             df_tmp = pd.DataFrame(data={'station': [station], 'phi_from_Q': [opt_phi], 'phi_from_N': [opt_phi_vec[0]], 'phi_from_U': [opt_phi_vec[1]], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [Q_w], 'lambda2/lambda1 ratio': [opt_eig_ratio], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
-            self.sws_result_df = self.sws_result_df.append(df_tmp)
+            self.sws_result_df = pd.concat([self.sws_result_df, df_tmp])
             try:
                 opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
                 opt_lag_idx = np.where(self.lags_labels == opt_lag)[0][0]
