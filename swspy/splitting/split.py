@@ -16,7 +16,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import pandas as pd 
-from numba import jit, prange, set_num_threads
+from numba import jit 
 from scipy import stats, interpolate
 from sklearn import cluster
 from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering
@@ -607,9 +607,6 @@ class create_splitting_object:
         phis_labels = np.arange(-90, 90 + rotate_step_deg, rotate_step_deg)
 
         # Perform grid search:
-        # (note that numba accelerated, hence why function outside class)
-        num_threads = 4
-        set_num_threads(int(num_threads))
         grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, 
                                                                                                         n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                                                                                         grid_search_results_all_win_EV, grid_search_results_all_win_XC)
@@ -1135,7 +1132,7 @@ class create_splitting_object:
                 ray_inc_at_station = np.nan
             # And append data to result df:
             df_tmp = pd.DataFrame(data={'station': [station], 'phi_from_Q': [opt_phi], 'phi_from_N': [opt_phi_vec[0]], 'phi_from_U': [opt_phi_vec[1]], 'phi_err': [opt_phi_err], 'dt': [opt_lag], 'dt_err': [opt_lag_err], 'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [Q_w], 'lambda2/lambda1 ratio': [opt_eig_ratio], 'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
-            self.sws_result_df = self.sws_result_df.append(df_tmp)
+            self.sws_result_df = pd.concat([self.sws_result_df, df_tmp])
             try:
                 opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
                 opt_lag_idx = np.where(self.lags_labels == opt_lag)[0][0]
@@ -1594,8 +1591,8 @@ class create_splitting_object:
                 cluster_results_ax_phi.set_ylim(-90, 90)
                 cluster_results_ax_dt.set_ylim(0, np.max(self.lags_labels))
                 cluster_results_ax_dt.set_xlabel("Cluster sample")
-                cluster_results_ax_phi.set_ylabel("$\phi$ ($^o$)")
-                cluster_results_ax_dt.set_ylabel("$\delta t$ ($s$)")
+                cluster_results_ax_phi.set_ylabel(r"$\phi$ ($^o$)")
+                cluster_results_ax_dt.set_ylabel(r"$\delta t$ ($s$)")
 
             # Add text:
             text_ax.text(0,0,"Event origin time : \n"+self.origin_time.strftime("%Y-%m-%dT%H:%M:%SZ"), fontsize='small')
@@ -1606,25 +1603,25 @@ class create_splitting_object:
                 dt_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1_err'])
                 dt_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2'])
                 dt_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2_err'])
-                text_ax.text(0,-2,"$\delta$ $t_{layer 1}$ : "+str(dt_layer1)+" +/-"+str(round(dt_err_layer1, 5))+" $s$", fontsize='small')
-                text_ax.text(0,-3,"$\delta$ $t_{layer 2}$ : "+str(dt_layer2)+" +/-"+str(round(dt_err_layer2, 5))+" $s$", fontsize='small')
+                text_ax.text(0,-2,r"$\delta$ $t_{layer 1}$ : "+str(dt_layer1)+" +/-"+str(round(dt_err_layer1, 5))+" $s$", fontsize='small')
+                text_ax.text(0,-3,r"$\delta$ $t_{layer 2}$ : "+str(dt_layer2)+" +/-"+str(round(dt_err_layer2, 5))+" $s$", fontsize='small')
                 phi_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_from_N'])
                 phi_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_err'])
                 phi_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_from_N'])
                 phi_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_err'])
-                text_ax.text(0,-4,"$\phi_{layer 1}$ from N : "+"{0:0.1f}".format(phi_layer1)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_layer1)+"$^o$", fontsize='small')
-                text_ax.text(0,-5,"$\phi_{layer 2}$ from N : "+"{0:0.1f}".format(phi_layer2)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_layer2)+"$^o$", fontsize='small')
+                text_ax.text(0,-4,r"$\phi_{layer 1}$ from N : "+"{0:0.1f}".format(phi_layer1)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_layer1)+"$^o$", fontsize='small')
+                text_ax.text(0,-5,r"$\phi_{layer 2}$ from N : "+"{0:0.1f}".format(phi_layer2)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_layer2)+"$^o$", fontsize='small')
                 text_ax.text(0,-6,''.join(("src pol from N: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
                 text_ax.text(0,-7,"Coord. sys. : "+self.coord_system, fontsize='small')
-                text_ax.text(0,-8,"$\lambda_2$/$\lambda_1$: "+str(round(opt_eig_ratio_curr, 3)), fontsize='small')
+                text_ax.text(0,-8,r"$\lambda_2$/$\lambda_1$: "+str(round(opt_eig_ratio_curr, 3)), fontsize='small')
                 if Q_w_curr <= 1.1:
                     text_ax.text(0,-9,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
             else:
-                text_ax.text(0,-2,"$\delta$ $t$ : "+str(dt_curr)+" +/-"+str(round(dt_err_curr, 5))+" $s$", fontsize='small')
-                text_ax.text(0,-3,"$\phi$ from N : "+"{0:0.1f}".format(phi_from_N_curr)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_curr)+"$^o$", fontsize='small')
+                text_ax.text(0,-2,r"$\delta$ $t$ : "+str(dt_curr)+" +/-"+str(round(dt_err_curr, 5))+" $s$", fontsize='small')
+                text_ax.text(0,-3,r"$\phi$ from N : "+"{0:0.1f}".format(phi_from_N_curr)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_curr)+"$^o$", fontsize='small')
                 text_ax.text(0,-4,''.join(("src pol from N: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
                 text_ax.text(0,-5,"Coord. sys. : "+self.coord_system, fontsize='small')
-                text_ax.text(0,-6,"$\lambda_2$/$\lambda_1$: "+str(round(opt_eig_ratio_curr, 3)), fontsize='small')
+                text_ax.text(0,-6,r"$\lambda_2$/$\lambda_1$: "+str(round(opt_eig_ratio_curr, 3)), fontsize='small')
                 if Q_w_curr <= 1.1:
                     text_ax.text(0,-7,"$Q_w$ : "+str(round(Q_w_curr, 3)), fontsize='small')
             text_ax.set_xlim(-2,10)
@@ -1643,11 +1640,11 @@ class create_splitting_object:
             ne_uncorr_ax.set_ylabel('N')
             ne_corr_ax.set_xlabel('E')
             ne_corr_ax.set_ylabel('N')
-            phi_dt_ax.set_xlabel('$\delta$ t (s)')
+            phi_dt_ax.set_xlabel(r'$\delta$ t (s)')
             if self.sws_multi_layer_result_df is None:
-                phi_dt_ax.set_ylabel('$\phi$ from Q ($^o$)')
+                phi_dt_ax.set_ylabel(r'$\phi$ from Q ($^o$)')
             else:
-                phi_dt_ax.set_ylabel('$\phi_{layer 1}$ from Q ($^o$)')
+                phi_dt_ax.set_ylabel(r'$\phi_{layer 1}$ from Q ($^o$)')
 
             # plt.colorbar()
             # plt.tight_layout()
