@@ -1180,10 +1180,11 @@ class create_splitting_object:
                                                 'src_pol_from_U_err': [], 'Q_w': [], 'lambda2/lambda1 ratio': [], 'ray_back_azi': [], 'ray_inc': []})
         self.sws_multi_layer_result_df = pd.DataFrame(data={'station': [], 'phi1_from_Q': [], 'phi1_from_N': [], 
                                                 'phi1_from_U': [], 'phi1_err': [], 'dt1': [], 'dt1_err': [], 
-                                                'phi1_from_Q': [], 'phi1_from_N': [], 'phi1_from_U': [], 'phi1_err': [], 
-                                                'dt1': [], 'dt1_err': [], 
+                                                'phi2_from_Q': [], 'phi2_from_N': [], 'phi2_from_U': [], 'phi2_err': [], 
+                                                'dt2': [], 'dt2_err': [], 
                                                 'src_pol_from_N': [], 'src_pol_from_U': [], 'src_pol_from_N_err': [], 
-                                                'src_pol_from_U_err': [], 'Q_w': [], 'lambda2/lambda1 ratio': [], 'lambda2/lambda1 ratio1': [], 'lambda2/lambda1 ratio2': [], 'ray_back_azi': [], 'ray_inc': []})
+                                                'src_pol_from_U_err': [], 'Q_w': [], 'lambda2/lambda1 ratio': [], 'lambda2/lambda1 ratio1': [], 
+                                                'lambda2/lambda1 ratio2': [], 'ray_back_azi': [], 'ray_inc': []})
         self.phi_dt_grid_average = {}
         self.event_station_win_idxs = {}
 
