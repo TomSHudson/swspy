@@ -16,7 +16,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import pandas as pd 
-from numba import jit 
+import numba 
+from numba import jit, set_num_threads, prange, float64, int64
 from scipy import stats, interpolate
 from sklearn import cluster
 from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering
@@ -367,7 +368,7 @@ def ftest(data, dof, alpha=0.05, k=2, min_max='min'):
     return conf_bound
 
 
-@jit(nopython=True)
+@jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:], float64[:,:,:]), nopython=True, parallel=True)
 def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                     grid_search_results_all_win_EV, grid_search_results_all_win_XC):
     """Function to do numba accelerated grid search of phis and dts.
@@ -383,8 +384,8 @@ def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_
             grid_search_idx = int(n_win*a + b)
 
             # Loop over angles:
-            for j in range(n_angle_steps):
-                angle_shift_rad_curr = ((j * rotate_step_deg) - 90.) * np.pi / 180. # (Note: -90 as should loop between -90 and 90 (see phi_labels))
+            for j in prange(n_angle_steps):
+                angle_shift_rad_curr = ((float(j) * rotate_step_deg) - 90.) * np.pi / 180. # (Note: -90 as should loop between -90 and 90 (see phi_labels))
 
                 # Rotate QT waveforms by angle:
                 # (Note: Explicit rotation specification as wrapped in numba):
@@ -423,7 +424,7 @@ def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_
         return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
 
 
-@jit(nopython=True)
+@jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:,:,:], float64[:,:,:,:,:]), nopython=True, parallel=True)
 def _phi_dt_grid_search_direct_multi_layer(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                     grid_search_results_all_win_EV, grid_search_results_all_win_XC):
     """Function to do numba accelerated grid search of phis and dts for a multi-layer 
@@ -451,8 +452,8 @@ def _phi_dt_grid_search_direct_multi_layer(data_arr_Q, data_arr_T, win_start_idx
 
             #----------------------- Apply initial rotation and time shift for first layer -----------------------
             # Loop over angles:
-            for j in range(n_angle_steps):
-                angle_shift_rad_curr = ((j * rotate_step_deg) - 90.) * np.pi / 180. # (Note: -90 as should loop between -90 and 90 (see phi_labels))
+            for j in prange(n_angle_steps):
+                angle_shift_rad_curr = ((float(j) * rotate_step_deg) - 90.) * np.pi / 180. # (Note: -90 as should loop between -90 and 90 (see phi_labels))
 
                 # Rotate QT waveforms by angle:
                 # (Note: Explicit rotation specification as wrapped in numba):
@@ -670,7 +671,7 @@ class create_splitting_object:
         return win_start_idxs, win_end_idxs
     
 
-    def _calc_splitting_eig_val_method(self, data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, sws_method="EV", n_layers=1):
+    def _calc_splitting_eig_val_method(self, data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, sws_method="EV", n_layers=1, num_threads=numba.config.NUMBA_DEFAULT_NUM_THREADS):
         """
         Function to calculate splitting via eigenvalue method.
         sws_method can be EV (eigenvalue) or EV_and_XC (eigenvalue and cross-correlation). EV_and_XC is for automation as in Wustefeld et al. (2010).
@@ -680,13 +681,15 @@ class create_splitting_object:
         if ( sws_method != "EV" ) and ( sws_method != "EV_and_XC" ):
             print("Error: sws_method = ", sws_method, "not recognised. Exiting.")
             sys.exit()
+        win_start_idxs = win_start_idxs.astype('int64')
+        win_end_idxs = win_end_idxs.astype('int64')
             
         # Setup paramters:
         n_t_steps = int(self.max_t_shift_s * self.fs)
         n_angle_steps = int(180. / self.rotate_step_deg) + 1
-        n_win = self.n_win
-        fs = self.fs
-        rotate_step_deg = self.rotate_step_deg
+        n_win = int(self.n_win)
+        fs = float(self.fs)
+        rotate_step_deg = float(self.rotate_step_deg)
 
         # Setup datastores:
         lags_labels = np.arange(0., n_t_steps, 1) / fs 
@@ -703,10 +706,10 @@ class create_splitting_object:
 
         # Perform grid search:
         if n_layers == 1:
-            grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, 
-                                                                                                        n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
-                                                                                                        grid_search_results_all_win_EV, grid_search_results_all_win_XC)
+            set_num_threads(int(num_threads))
+            grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, grid_search_results_all_win_EV, grid_search_results_all_win_XC)
         elif n_layers == 2:
+            set_num_threads(int(num_threads))
             grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search_direct_multi_layer(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, 
                                                                                                         n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                                                                                         grid_search_results_all_win_EV, grid_search_results_all_win_XC)
@@ -1060,7 +1063,7 @@ class create_splitting_object:
         return st_ZNE_curr, st_ZNE_curr_sws_corrected_layer_2, st_ZNE_curr_sws_corrected_layer_1_and_2
     
 
-    def perform_sws_analysis(self, coord_system="ZNE", sws_method="EV", return_clusters_data=True):
+    def perform_sws_analysis(self, coord_system="ZNE", sws_method="EV", return_clusters_data=True, num_threads=numba.config.NUMBA_DEFAULT_NUM_THREADS):
         """Function to perform splitting analysis. Works in LQT coordinate system 
         as then performs shear-wave-splitting in 3D.
         
@@ -1080,6 +1083,10 @@ class create_splitting_object:
         return_clusters_data : bool
             If True, returns clustering data information. This is primarily used for 
             plotting. Default is False.
+
+        num_threads : int
+            Number of threads to use for parallel computing. Default is to use all 
+            available threads on the system.
 
         """
         # Save any parameters to class object:
@@ -1167,11 +1174,11 @@ class create_splitting_object:
             # 4.a. Get data for all windows:
             if self.sws_method == "EV":
                 grid_search_results_all_win_EV, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs, win_end_idxs, 
-                                                                                                                    sws_method=self.sws_method)
+                                                                                                                    sws_method=self.sws_method, num_threads=num_threads)
             elif self.sws_method == "EV_and_XC":
                 try:
                     grid_search_results_all_win_EV, grid_search_results_all_win_XC, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs, win_end_idxs, 
-                                                                                                                    sws_method=self.sws_method)
+                                                                                                                    sws_method=self.sws_method, num_threads=num_threads)
                 except np.linalg.LinAlgError:
                     # And check that returned values without issues:
                     print("Warning: NaN error in _calc_splitting_eig_val_method(). Skipping station:", station)
@@ -1252,7 +1259,7 @@ class create_splitting_object:
         return self.sws_result_df
 
 
-    def perform_sws_analysis_multi_layer(self, coord_system="ZNE", multi_layer_method="explicit"):
+    def perform_sws_analysis_multi_layer(self, coord_system="ZNE", multi_layer_method="explicit", num_threads=numba.config.NUMBA_DEFAULT_NUM_THREADS):
         """Function to perform splitting analysis for a multi-layered medium. Currently 
          only a 2-layer medium is supported. Works in LQT coordinate system, therefore 
         supporting shear-wave-splitting in 3D.
@@ -1276,6 +1283,10 @@ class create_splitting_object:
             2. direct - Applies layers directly together in the inversion. Computationally 
             expensive relative to explicit method, with many free parameters, as computation 
             scales as (n_phi * n_dt) ^ n-layers.
+
+        num_threads : int
+            Number of threads to use for parallel computing. Default is to use all 
+            available threads on the system.
 
         """
         # Save any parameters to class object:
@@ -1372,7 +1383,7 @@ class create_splitting_object:
                 # (Weighted mean of window 1 and window 2)
                 # 2.a. For first window:
                 grid_search_results_all_win_EV_win1, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs_partition1, 
-                                                                                                            win_end_idxs_partition1, sws_method="EV")
+                                                                                                            win_end_idxs_partition1, sws_method="EV", num_threads=num_threads)
                 grid_search_results_all_win_EV_win1[grid_search_results_all_win_EV_win1==0] = 1 # Remove effect of any exact zero eigenvalues (spurious results), while preseerving indices
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
@@ -1383,7 +1394,7 @@ class create_splitting_object:
                     continue # If didn't cluster, skip station
                 # 2.b. For second window:
                 grid_search_results_all_win_EV_win2, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs_partition2, 
-                                                                                                            win_end_idxs_partition2, sws_method="EV")
+                                                                                                            win_end_idxs_partition2, sws_method="EV", num_threads=num_threads)
                 grid_search_results_all_win_EV_win2[grid_search_results_all_win_EV_win2==0] = 1 # Remove effect of any exact zero eigenvalues (spurious results), while preseerving indices
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
@@ -1411,7 +1422,7 @@ class create_splitting_object:
                 tr_Q = st_LQT_curr_sws_layer_2_removed.select(station=station, channel="??Q")[0]
                 tr_T = st_LQT_curr_sws_layer_2_removed.select(station=station, channel="??T")[0]
                 grid_search_results_all_win_EV_layer1, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs, 
-                                                                                                            win_end_idxs, sws_method="EV")
+                                                                                                            win_end_idxs, sws_method="EV", num_threads=num_threads)
                 grid_search_results_all_win_EV_layer1[grid_search_results_all_win_EV_layer1==0] = 1 # Remove effect of any exact zero eigenvalues (spurious results), while preseerving indices
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
