@@ -473,7 +473,7 @@ def _phi_dt_grid_search_direct_multi_layer(data_arr_Q, data_arr_T, win_start_idx
                     #----------------------- Apply rotation and time shift for second layer -----------------------
                     # Loop over angles:
                     for l in range(n_angle_steps):
-                        angle_shift_rad_curr = ((j * rotate_step_deg) - 90.) * np.pi / 180. # (Note: -90 as should loop between -90 and 90 (see phi_labels))
+                        angle_shift_rad_curr = ((l * rotate_step_deg) - 90.) * np.pi / 180. # (Note: -90 as should loop between -90 and 90 (see phi_labels))
 
                         # Rotate QT waveforms by angle:
                         # (Note: Explicit rotation specification as wrapped in numba):
@@ -486,7 +486,7 @@ def _phi_dt_grid_search_direct_multi_layer(data_arr_Q, data_arr_T, win_start_idx
 
                         # Loop over time shifts:
                         for k in range(n_t_steps):
-                            t_samp_shift_curr = int( i ) # (note: the minus sign as lag so need to shift back, if assume slow direction aligned with T)
+                            t_samp_shift_curr = int( k ) # (note: the minus sign as lag so need to shift back, if assume slow direction aligned with T)
                             # Time-shift data (note: + dt for fast dir (rot Q), and -dt for slow dir (rot T)):
                             rolled_rot_Q_curr = np.roll(rot_Q_curr, +int(t_samp_shift_curr/2.))
                             rolled_rot_T_curr = np.roll(rot_T_curr, -int(t_samp_shift_curr/2.))
@@ -1373,6 +1373,7 @@ class create_splitting_object:
                 # 2.a. For first window:
                 grid_search_results_all_win_EV_win1, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs_partition1, 
                                                                                                             win_end_idxs_partition1, sws_method="EV")
+                grid_search_results_all_win_EV_win1[grid_search_results_all_win_EV_win1==0] = 1 # Remove effect of any exact zero eigenvalues (spurious results), while preseerving indices
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
                 phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win1, tr_T)         
@@ -1383,6 +1384,7 @@ class create_splitting_object:
                 # 2.b. For second window:
                 grid_search_results_all_win_EV_win2, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs_partition2, 
                                                                                                             win_end_idxs_partition2, sws_method="EV")
+                grid_search_results_all_win_EV_win2[grid_search_results_all_win_EV_win2==0] = 1 # Remove effect of any exact zero eigenvalues (spurious results), while preseerving indices
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
                 phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win2, tr_T)         
@@ -1410,6 +1412,7 @@ class create_splitting_object:
                 tr_T = st_LQT_curr_sws_layer_2_removed.select(station=station, channel="??T")[0]
                 grid_search_results_all_win_EV_layer1, lags_labels, phis_labels = self._calc_splitting_eig_val_method(tr_Q.data, tr_T.data, win_start_idxs, 
                                                                                                             win_end_idxs, sws_method="EV")
+                grid_search_results_all_win_EV_layer1[grid_search_results_all_win_EV_layer1==0] = 1 # Remove effect of any exact zero eigenvalues (spurious results), while preseerving indices
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
                 phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_layer1, tr_T)         
