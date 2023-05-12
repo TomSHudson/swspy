@@ -6,4 +6,7 @@ scikit-learn
 obspy
 NonLinLocPy
 numba
+# For testing
 pytest
+nbformat
+nbconvert
