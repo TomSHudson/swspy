@@ -10,3 +10,4 @@ numba
 pytest
 nbformat
 nbconvert
+ipykernel
