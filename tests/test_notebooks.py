@@ -6,12 +6,22 @@ For now we just check that they run without errors.
 """
 import sys
 import os
+import pytest
 import inspect
 import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
 
 nbpath = os.path.join(os.path.dirname(os.path.abspath(
             inspect.getfile(inspect.currentframe()))), "..", "examples")
+
+# All notebooks we want to test in the list below.
+# Note that the synth example and multi layer icequake example are
+# is very slow (doing the direct two layer cell) so are excluded
+notebooks_to_test = ["paper_examples/sks_figure/sks_figure.ipynb",
+                     #"paper_examples/synth_example_figures/synth_example.ipynb", 
+                     #"multi_layer_icequake_figure/multi_layer_icequake_figure.ipynb",
+                     "automated_example/automated_example.ipynb",
+                     "paper_examples/icequake_figure/icequake_figure.ipynb"]
 
 def _run_notebook(nb_path):
     """Helper to run a notebook and return any errors."""
@@ -29,7 +39,9 @@ def _run_notebook(nb_path):
 
     return err
 
-def test_sks_figure():
-    err = _run_notebook(os.path.join(nbpath, "paper_examples/sks_figure/sks_figure.ipynb"))
+
+@pytest.mark.parametrize("notebook", notebooks_to_test)
+def test_notebook(notebook):
+    err = _run_notebook(os.path.join(nbpath, notebook))
     assert err == []
 
