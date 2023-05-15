@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="swspy",
-    version="0.0.1",
+    version="1.0.0",
     author="Tom Hudson",
     author_email="thomas.hudson@earth.ox.ac.uk",
     description="A package for automatically calculating shear wave splitting for large earthquake catalogues.",
