@@ -1,2 +1,0 @@
-station,phi_from_Q,phi_from_N,phi_from_U,phi_err,dt,dt_err,src_pol_from_N,src_pol_from_U,src_pol_from_N_err,src_pol_from_U_err,Q_w,lambda2/lambda1 ratio,ray_back_azi,ray_inc
-IRON,78.0,78.0,90.0,4.5,2.3,0.35,96.7512659697,101.043160849,3.56483593854,34.0412143345,0.0,0.0079456520485,0.0,0.0
