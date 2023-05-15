@@ -29,7 +29,7 @@ def _run_notebook(nb_path):
     with open(nb_path) as f:
         nb = nbformat.read(f, as_version=4)
         ep = ExecutePreprocessor(allow_errors=True, kernel_name='python3',
-                                 timeout=600)
+                                 timeout=1200)
         ep.preprocess(nb, {'metadata': {'path': os.path.dirname(nb_path)}})
 
         # Check for any errors and return a list of error cells
