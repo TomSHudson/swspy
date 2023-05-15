@@ -421,7 +421,7 @@ def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_
                     grid_search_results_all_win_XC[grid_search_idx,i,j] = np.sum( np.abs(rolled_rot_Q_curr * rolled_rot_T_curr) / (np.std(rolled_rot_Q_curr) * 
                                                                 np.std(rolled_rot_T_curr))) / len(rolled_rot_T_curr)
 
-        return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
+    return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
 
 
 @jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:,:,:], float64[:,:,:,:,:]), nopython=True, parallel=True)
@@ -512,7 +512,7 @@ def _phi_dt_grid_search_direct_multi_layer(data_arr_Q, data_arr_T, win_start_idx
                             #                                            np.std(rolled_rot_T_curr))) / len(rolled_rot_T_curr)
                     
 
-        return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
+    return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
 
 
 
