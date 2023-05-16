@@ -912,10 +912,17 @@ class create_splitting_object:
         return opt_phi_vec
 
 
-    def _calc_Q_w(self, opt_phi_EV, opt_lag_EV, grid_search_results_all_win_XC, tr_for_dof, method="dbscan"):
-        """Function to calculate Q_w from Wustefeld et al. (2010), for automated analysis."""
+    def _calc_Q_w(self, opt_phi_EV, opt_lag_EV, grid_search_results_all_win_XC, tr_for_dof, method="dbscan", opt_lag_EV_err=None):
+        """Function to calculate Q_w from Wustefeld et al. (2010), for automated analysis.
+        If opt_lag_EV_err specified, then will use this to guide removal of spurious dt~0s XC peaks."""
         # 1. Calculate optimal lags for XC method (as already passed values from EV method):
         # (Note: Uses same error and window analysis as XC method)
+        # Apply an effective mask to zero delay-time values, if opt_lag_EV > 0 + err:
+        # (To mitigate unstable XC result)
+        if opt_lag_EV_err:
+            if opt_lag_EV > 0 + opt_lag_EV_err:
+                lag_idxs_to_mask = np.where(self.lags_labels<=opt_lag_EV_err+(self.lags_labels[1]-self.lags_labels[0]))[0]
+                grid_search_results_all_win_XC[:,lag_idxs_to_mask,:] = 1e-10 # (Note: Not zero so doesn't through zero division warning)
         # Convert XC to all negative so that universal with mimimum method used in EV analysis:
         grid_search_results_all_win_XC = 1. / grid_search_results_all_win_XC
         # And calculate optimal lags for XC method:
@@ -1204,7 +1211,7 @@ class create_splitting_object:
             # (For automated approach)
             # (Only if sws_method = "EV_and_XC")
             if self.sws_method == "EV_and_XC":
-                Q_w = self._calc_Q_w(opt_phi, opt_lag, grid_search_results_all_win_XC, tr_T, method="dbscan")
+                Q_w = self._calc_Q_w(opt_phi, opt_lag, grid_search_results_all_win_XC, tr_T, method="dbscan", opt_lag_EV_err=opt_lag_err)
             else:
                 Q_w = np.nan        
 
