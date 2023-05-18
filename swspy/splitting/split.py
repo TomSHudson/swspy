@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import pandas as pd 
 import numba 
-from numba import jit, set_num_threads, prange, float64, int64
+from numba import jit, njit, types, set_num_threads, prange, float64, int64
 from scipy import stats, interpolate
 from sklearn import cluster
 from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering
@@ -368,6 +368,10 @@ def ftest(data, dof, alpha=0.05, k=2, min_max='min'):
     return conf_bound
 
 
+# @jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:], float64[:,:,:]), nopython=True, parallel=True)
+#@njit((types.float64[:], types.float64[:], types.int64[:], types.int64[:], types.int64, types.int64, types.int64, types.float64, types.float64, types.float64[:,:,:], types.float64[:,:,:]), parallel=True)
+# @jit(nopython=True, parallel=True)
+#@njit()#parallel=True)
 @jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:], float64[:,:,:]), nopython=True, parallel=True)
 def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                     grid_search_results_all_win_EV, grid_search_results_all_win_XC):
@@ -418,8 +422,7 @@ def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_
                     # if len(grid_search_results_all_win_XC) > 0:
                         # Calculate XC coeffecient and save to array:
                         # if np.std(rolled_rot_Q_curr)  * np.std(rolled_rot_T_curr) > 0. and len(rolled_rot_T_curr) > 0:
-                    grid_search_results_all_win_XC[grid_search_idx,i,j] = np.sum( np.abs(rolled_rot_Q_curr * rolled_rot_T_curr) / (np.std(rolled_rot_Q_curr) * 
-                                                                np.std(rolled_rot_T_curr))) / len(rolled_rot_T_curr)
+                    grid_search_results_all_win_XC[grid_search_idx,i,j] = np.sum( np.abs(rolled_rot_Q_curr * rolled_rot_T_curr) / (np.std(rolled_rot_Q_curr) * np.std(rolled_rot_T_curr))) / float(len(rolled_rot_T_curr))
 
     return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
 
@@ -706,7 +709,6 @@ class create_splitting_object:
 
         # Perform grid search:
         if n_layers == 1:
-            set_num_threads(int(num_threads))
             grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, grid_search_results_all_win_EV, grid_search_results_all_win_XC)
         elif n_layers == 2:
             set_num_threads(int(num_threads))
