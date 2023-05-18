@@ -744,8 +744,8 @@ class create_splitting_object:
         # Find grid search array points where within confidence interval:
         # Use transverse component to calculate dof
         dof = calc_dof(tr_for_dof.data)
-        conf_bound = ftest(error_surf, dof, alpha=0.05, k=2)
-        # conf_bound = ftest(error_surf, dof, alpha=0.33, k=2)
+        conf_bound = ftest(error_surf, dof, alpha=0.05, k=2) # (2 sigma)
+        #conf_bound = ftest(error_surf, dof, alpha=0.32, k=2) # (1 sigma)
         conf_mask = error_surf <= conf_bound
 
         # Find lag dt error:
@@ -1312,6 +1312,8 @@ class create_splitting_object:
                                                 'src_pol_from_U_err': [], 'Q_w': [], 'lambda2/lambda1 ratio': [], 'lambda2/lambda1 ratio1': [], 
                                                 'lambda2/lambda1 ratio2': [], 'ray_back_azi': [], 'ray_inc': []})
         self.phi_dt_grid_average = {}
+        self.phi_dt_grid_average_layer1 = {}
+        self.phi_dt_grid_average_layer2 = {}
         self.event_station_win_idxs = {}
 
         # 0. Get initial, apparent splitting parameters:
@@ -1419,6 +1421,10 @@ class create_splitting_object:
                 opt_phi_err_layer2 = np.array([opt_phi_err_win1, opt_phi_err_win2])[best_win_idx]
                 opt_lag_err_layer2 = np.array([opt_lag_err_win1, opt_lag_err_win2])[best_win_idx]
                 opt_eig_ratio_layer2 = np.min(min_EV_both_wins)
+                if best_win_idx == 0:
+                    grid_search_results_all_win_EV_layer2 = grid_search_results_all_win_EV_win1
+                elif best_win_idx == 1:
+                    grid_search_results_all_win_EV_layer2 = grid_search_results_all_win_EV_win2
                     
                 # 3. Remove effect of layer 2 anisotropy:
                 st_ZNE_curr_sws_layer_2_removed = remove_splitting(st_ZNE_curr, opt_phi_layer2, opt_lag_layer2, back_azi, event_inclin_angle_at_station, return_BPA=False)
@@ -1478,6 +1484,7 @@ class create_splitting_object:
                 opt_eig_ratio_layer1, opt_eig_ratio_layer2 = opt_eig_ratio, opt_eig_ratio
                 grid_search_results_all_win_EV_layer1 = grid_search_result_multi_layer_inv[:, abs_min_indices[1], abs_min_indices[2], 
                                                                                            :, :]
+                grid_search_results_all_win_EV_layer2 = np.zeros(np.shape(grid_search_results_all_win_EV_layer1)) # Set layer 2 to zeros, simply as can't untangle result.
                 del grid_search_result_multi_layer_inv
                 gc.collect()
 
@@ -1546,6 +1553,8 @@ class create_splitting_object:
             except IndexError:
                 raise CustomError("Cannot find optimal phi or lag.")
             self.phi_dt_grid_average[station] = np.average(grid_search_results_all_win_EV_layer1, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
+            self.phi_dt_grid_average_layer1[station] = np.average(grid_search_results_all_win_EV_layer1, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
+            self.phi_dt_grid_average_layer2[station] = np.average(grid_search_results_all_win_EV_layer2, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
             self.event_station_win_idxs[station] = {}
             self.event_station_win_idxs[station]['win_start_idxs'] = win_start_idxs
             self.event_station_win_idxs[station]['win_end_idxs'] = win_end_idxs
@@ -1585,6 +1594,15 @@ class create_splitting_object:
                 src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N_err'])
                 Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
                 opt_eig_ratio_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['lambda2/lambda1 ratio'])
+                if self.sws_multi_layer_result_df is not None:
+                    dt_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1'])
+                    dt_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1_err'])
+                    dt_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2'])
+                    dt_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2_err'])
+                    phi_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_from_N'])
+                    phi_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_err'])
+                    phi_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_from_N'])
+                    phi_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_err'])
             except TypeError:
                 # If cannot get parameters becuase splitting clustering failed, skip station:
                 print("Cannot get splitting parameters because splitting clustering failed. Skipping station:", 
@@ -1737,12 +1755,40 @@ class create_splitting_object:
             ne_corr_ax.set_ylim(-1.1*max_amp, 1.1*max_amp)
 
             # phi - dt space:
-            Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
-            Z = self.phi_dt_grid_average[station]
-            # phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
-            CS = phi_dt_ax.contourf(X, Y, Z, levels=20, cmap="magma")
-            CS2 = phi_dt_ax.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.25)
-            phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g', capsize=5)
+            # Plot for single layer:
+            if self.sws_multi_layer_result_df is None:
+                Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
+                Z = self.phi_dt_grid_average[station]
+                # phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
+                CS = phi_dt_ax.contourf(X, Y, Z, levels=20, cmap="magma")
+                CS2 = phi_dt_ax.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.25)
+                phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g', capsize=5)
+            # Or plot for double layer:
+            else:
+                # Setup new axes:
+                phi_dt_ax_layer1 = phi_dt_ax.inset_axes([0, 0, 1.0, 0.5])#([0, 0, 0.5, 1.0])
+                phi_dt_ax_layer2 = phi_dt_ax.inset_axes([0, 0.5, 1.0, 0.5])#([0.5, 0, 0.5, 1.0])
+                # And plot data:
+                Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
+                Z1 = self.phi_dt_grid_average_layer1[station]
+                Z2 = self.phi_dt_grid_average_layer2[station]
+                CS = phi_dt_ax_layer1.contourf(X, Y, Z1, levels=20, cmap="magma")
+                CS2 = phi_dt_ax_layer1.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.25)
+                phi_dt_ax_layer1.errorbar(dt_layer1 , phi_layer1, xerr=dt_err_layer1, yerr=phi_err_layer1, c='g', capsize=5)  
+                phi_dt_ax_layer1.set_xlim(self.lags_labels[0], self.lags_labels[-1])
+                phi_dt_ax_layer1.set_ylim(self.phis_labels[0], self.phis_labels[-1])
+                CS = phi_dt_ax_layer2.contourf(X, Y, Z2, levels=20, cmap="magma")
+                CS2 = phi_dt_ax_layer2.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.25)
+                phi_dt_ax_layer2.errorbar(dt_layer2 , phi_layer2, xerr=dt_err_layer2, yerr=phi_err_layer2, c='g', capsize=5)
+                phi_dt_ax_layer2.set_xlim(self.lags_labels[0], self.lags_labels[-1])
+                phi_dt_ax_layer2.set_ylim(self.phis_labels[0], self.phis_labels[-1])
+                # And sort axes:
+                phi_dt_ax_layer1.set_xlabel(r'$\delta t_{layer 1,2}$ ($s$)')
+                # phi_dt_ax_layer2.set_xlabel(r'$\delta t_{layer 2}$ ($s$)')
+                phi_dt_ax_layer2.get_xaxis().set_visible(False)
+                phi_dt_ax_layer1.set_ylabel(r'$\phi_{layer 1}$ from Q ($^o$)')
+                phi_dt_ax_layer2.set_ylabel(r'$\phi_{layer 2}$ from Q ($^o$)')
+                # phi_dt_ax_layer2.get_yaxis().set_visible(False)
 
             # Add clustering data if available:
             if self.clustering_info:
@@ -1773,16 +1819,8 @@ class create_splitting_object:
             text_ax.text(0,-1,"Station : "+station, fontsize='small')
             # Plot intermediate post layer 2 correction (multi-layer splitting):
             if self.sws_multi_layer_result_df is not None:
-                dt_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1'])
-                dt_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1_err'])
-                dt_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2'])
-                dt_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2_err'])
                 text_ax.text(0,-2,r"$\delta$ $t_{layer 1}$ : "+str(dt_layer1)+" +/-"+str(round(dt_err_layer1, 5))+" $s$", fontsize='small')
                 text_ax.text(0,-3,r"$\delta$ $t_{layer 2}$ : "+str(dt_layer2)+" +/-"+str(round(dt_err_layer2, 5))+" $s$", fontsize='small')
-                phi_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_from_N'])
-                phi_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_err'])
-                phi_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_from_N'])
-                phi_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_err'])
                 text_ax.text(0,-4,r"$\phi_{layer 1}$ from N : "+"{0:0.1f}".format(phi_layer1)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_layer1)+"$^o$", fontsize='small')
                 text_ax.text(0,-5,r"$\phi_{layer 2}$ from N : "+"{0:0.1f}".format(phi_layer2)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_layer2)+"$^o$", fontsize='small')
                 text_ax.text(0,-6,''.join(("src pol from N: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
@@ -1818,7 +1856,9 @@ class create_splitting_object:
             if self.sws_multi_layer_result_df is None:
                 phi_dt_ax.set_ylabel(r'$\phi$ from Q ($^o$)')
             else:
-                phi_dt_ax.set_ylabel(r'$\phi_{layer 1}$ from Q ($^o$)')
+                phi_dt_ax.set_ylabel(r'$\phi_{layer 1,2}$ from Q ($^o$)')
+                phi_dt_ax.get_xaxis().set_visible(False)
+                phi_dt_ax.get_yaxis().set_visible(False)
 
             # plt.colorbar()
             # plt.tight_layout()

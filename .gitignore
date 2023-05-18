@@ -130,7 +130,7 @@ dmypy.json
 
 # Other manual edits:
 examples/sks_example/outputs/plots/*.png
-**/plots/*.png
+###**/plots/*.png
 docs/**/*.mseed
 docs/**/*.csv
 examples/automated_example/data/data_structuring_notes.txt
