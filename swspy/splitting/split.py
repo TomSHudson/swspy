@@ -744,8 +744,9 @@ class create_splitting_object:
         # Find grid search array points where within confidence interval:
         # Use transverse component to calculate dof
         dof = calc_dof(tr_for_dof.data)
-        conf_bound = ftest(error_surf, dof, alpha=0.05, k=2) # (2 sigma)
+        #conf_bound = ftest(error_surf, dof, alpha=0.05, k=2) # (2 sigma)
         #conf_bound = ftest(error_surf, dof, alpha=0.32, k=2) # (1 sigma)
+        conf_bound = ftest(error_surf, dof, alpha=0.003, k=2) # (1 sigma)
         conf_mask = error_surf <= conf_bound
 
         # Find lag dt error:
@@ -1390,8 +1391,8 @@ class create_splitting_object:
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
                 phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win1, tr_T)         
-                opt_phi_win1, opt_lag_win1, opt_phi_err_win1, opt_lag_err_win1, opt_eig_ratio1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
-                                                                                                                        min_eig_ratios=min_eig_ratios, method="dbscan")
+                opt_phi_win1, opt_lag_win1, opt_phi_err_win1, opt_lag_err_win1, opt_eig_ratio1, clusters_dict1, min_var_idx1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
+                                                                                                                        min_eig_ratios=min_eig_ratios, method="dbscan", return_clusters_data=True)
                 if not opt_phi_win1:
                     continue # If didn't cluster, skip station
                 # 2.b. For second window:
@@ -1401,10 +1402,11 @@ class create_splitting_object:
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
                 phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win2, tr_T)         
-                opt_phi_win2, opt_lag_win2, opt_phi_err_win2, opt_lag_err_win2, opt_eig_ratio2 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
-                                                                                                                        min_eig_ratios=min_eig_ratios, method="dbscan")
+                opt_phi_win2, opt_lag_win2, opt_phi_err_win2, opt_lag_err_win2, opt_eig_ratio2, clusters_dict2, min_var_idx2 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
+                                                                                                                        min_eig_ratios=min_eig_ratios, method="dbscan", return_clusters_data=True)
                 if not opt_phi_win2:
                     continue # If didn't cluster, skip station
+
                 # 2.c. Pick best (most linearised) result:
                 min_EV_both_wins = np.array([opt_eig_ratio1, opt_eig_ratio2])
                 min_EV_both_wins[min_EV_both_wins==0] = 1e6 # Remove effect of any exact zero eigenvalues (spurious results), while preseerving indices
@@ -1416,8 +1418,16 @@ class create_splitting_object:
                 opt_eig_ratio_layer2 = np.min(min_EV_both_wins)
                 if best_win_idx == 0:
                     grid_search_results_all_win_EV_layer2 = grid_search_results_all_win_EV_win1
+                    self.clustering_info[station] = {}
+                    self.clustering_info[station]['layer2'] = {}
+                    self.clustering_info[station]['layer2']['min_var_idx'] = min_var_idx1
+                    self.clustering_info[station]['layer2']['clusters_dict'] = clusters_dict1
                 elif best_win_idx == 1:
                     grid_search_results_all_win_EV_layer2 = grid_search_results_all_win_EV_win2
+                    self.clustering_info[station] = {}
+                    self.clustering_info[station]['layer2'] = {}
+                    self.clustering_info[station]['layer2']['min_var_idx'] = min_var_idx2
+                    self.clustering_info[station]['layer2']['clusters_dict'] = clusters_dict2
                     
                 # 3. Remove effect of layer 2 anisotropy:
                 st_ZNE_curr_sws_layer_2_removed = remove_splitting(st_ZNE_curr, opt_phi_layer2, opt_lag_layer2, back_azi, event_inclin_angle_at_station, return_BPA=False)
@@ -1433,8 +1443,12 @@ class create_splitting_object:
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
                 phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_layer1, tr_T)         
-                opt_phi_layer1, opt_lag_layer1, opt_phi_err_layer1, opt_lag_err_layer1, opt_eig_ratio_layer1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
-                                                                                                                                min_eig_ratios=min_eig_ratios, method="dbscan")
+                opt_phi_layer1, opt_lag_layer1, opt_phi_err_layer1, opt_lag_err_layer1, opt_eig_ratio_layer1, clusters_dict_layer1, min_var_idx_layer1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
+                                                                                                                                min_eig_ratios=min_eig_ratios, method="dbscan", return_clusters_data=True)
+                # And write clustering info:
+                self.clustering_info[station]['layer1'] = {}
+                self.clustering_info[station]['layer1']['min_var_idx'] = min_var_idx_layer1
+                self.clustering_info[station]['layer1']['clusters_dict'] = clusters_dict_layer1
                 if not opt_phi_layer1:
                     continue # If didn't cluster, skip station
                 
@@ -1785,21 +1799,43 @@ class create_splitting_object:
 
             # Add clustering data if available:
             if self.clustering_info:
-                clust_idxs = list(self.clustering_info[station]['clusters_dict'].keys())
-                samp_idx_count = 0
-                for clust_idx in clust_idxs:
-                    # PLot cluster phis:
-                    y_tmp = self.clustering_info[station]['clusters_dict'][clust_idx]['phis']
-                    x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
-                    y_err = self.clustering_info[station]['clusters_dict'][clust_idx]['phi_errs']
-                    cluster_results_ax_phi.errorbar(x_tmp, y_tmp, yerr=y_err, c='k', markersize=2.5, alpha=0.5)
-                    # And plot cluster dts:
-                    y_tmp = self.clustering_info[station]['clusters_dict'][clust_idx]['lags']
-                    x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
-                    y_err = self.clustering_info[station]['clusters_dict'][clust_idx]['lag_errs']
-                    cluster_results_ax_dt.errorbar(x_tmp, y_tmp, yerr=y_err, c='k', markersize=2.5, alpha=0.5)                    
-                    # And update x sample count:
-                    samp_idx_count = samp_idx_count + len(y_tmp)
+                # Plot clustering for multi-layer explicit result, if exists:
+                if "layer1" in self.clustering_info[station]:
+                    clust_idxs = list(self.clustering_info[station]['layer1']['clusters_dict'].keys())
+                    samp_idx_count = 0
+                    for clust_idx in clust_idxs:
+                        samp_idx_count_overall = samp_idx_count
+                        for layer_id in ['layer1', 'layer2']:
+                            samp_idx_count = samp_idx_count_overall
+                            # PLot cluster phis:
+                            y_tmp = self.clustering_info[station][layer_id]['clusters_dict'][clust_idx]['phis']
+                            x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
+                            y_err = self.clustering_info[station][layer_id]['clusters_dict'][clust_idx]['phi_errs']
+                            cluster_results_ax_phi.errorbar(x_tmp, y_tmp, yerr=y_err, markersize=2.5, alpha=0.5)
+                            # And plot cluster dts:
+                            y_tmp = self.clustering_info[station][layer_id]['clusters_dict'][clust_idx]['lags']
+                            x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
+                            y_err = self.clustering_info[station][layer_id]['clusters_dict'][clust_idx]['lag_errs']
+                            cluster_results_ax_dt.errorbar(x_tmp, y_tmp, yerr=y_err, markersize=2.5, alpha=0.5)                    
+                            # And update x sample count:
+                            samp_idx_count = samp_idx_count + len(y_tmp)
+                # Or plot single clustering, if not explicit multi-layer result:
+                else:    
+                    clust_idxs = list(self.clustering_info[station]['clusters_dict'].keys())
+                    samp_idx_count = 0
+                    for clust_idx in clust_idxs:
+                        # PLot cluster phis:
+                        y_tmp = self.clustering_info[station]['clusters_dict'][clust_idx]['phis']
+                        x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
+                        y_err = self.clustering_info[station]['clusters_dict'][clust_idx]['phi_errs']
+                        cluster_results_ax_phi.errorbar(x_tmp, y_tmp, yerr=y_err, c='k', markersize=2.5, alpha=0.5)
+                        # And plot cluster dts:
+                        y_tmp = self.clustering_info[station]['clusters_dict'][clust_idx]['lags']
+                        x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
+                        y_err = self.clustering_info[station]['clusters_dict'][clust_idx]['lag_errs']
+                        cluster_results_ax_dt.errorbar(x_tmp, y_tmp, yerr=y_err, c='k', markersize=2.5, alpha=0.5)                    
+                        # And update x sample count:
+                        samp_idx_count = samp_idx_count + len(y_tmp)
                 # And set limits and labels:
                 cluster_results_ax_phi.set_ylim(-90, 90)
                 cluster_results_ax_dt.set_ylim(0, np.max(self.lags_labels))
