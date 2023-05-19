@@ -17,7 +17,7 @@ import sphinx_rtd_theme
 import mock
 
 # Add swspy path:
-sys.path.insert(0, os.path.abspath(os.path.join("..","..","swspy")))
+sys.path.insert(0, os.path.abspath(os.path.join("..","..")))
 
 
 # -- Project information -----------------------------------------------------
