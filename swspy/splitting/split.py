@@ -1266,10 +1266,8 @@ class create_splitting_object:
         """Function to perform splitting analysis for a multi-layered medium. Currently 
          only a 2-layer medium is supported. Works in LQT coordinate system, therefore 
         supporting shear-wave-splitting in 3D.
-
         Currently doesn't support any method other than <sws_method> = EV and 
         doesn't support returning clustered data.
-
         Method assumes that apparent delay-time is longer than fast S-wave arrival duration.
         
         Parameters
