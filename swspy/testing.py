@@ -2,12 +2,13 @@
 
 import numpy as np
 
-def clamp_angle(angle):
+def clamp_angle(angle_in):
     """
     Assuming 180 degree periodicity, represent an angle between -90 and +90 degrees
 
     angle is a numpy array.
     """
+    angle = np.atleast_1d(angle_in)
     angle = angle - 180.0 * np.fix(angle / 180.0)
     angle[angle<=-90.0] = angle[angle<=-90.0] + 180.0
     angle[angle>90.0] = angle[angle>90.0] - 180.0
