@@ -16,4 +16,3 @@ nbsphinx
 # gc
 # time
 # pathlib
-# NonLinLocPy

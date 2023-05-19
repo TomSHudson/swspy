@@ -21,7 +21,6 @@ import sys, os
 import glob
 import subprocess
 import gc
-from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
 
 class load_waveforms:
     """

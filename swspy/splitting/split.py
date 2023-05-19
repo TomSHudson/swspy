@@ -11,6 +11,7 @@
 #-----------------------------------------------------------------------------------------------------------------------------------------
 
 # Import neccessary modules:
+import swspy
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -27,7 +28,6 @@ import sys, os
 import glob
 import subprocess
 import gc
-from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
 import time 
 
 
@@ -636,7 +636,7 @@ class create_splitting_object:
         self.st = st 
         self.nonlinloc_event_path = nonlinloc_event_path
         if self.nonlinloc_event_path:
-            self.nonlinloc_hyp_data = read_nonlinloc.read_hyp_file(nonlinloc_event_path)
+            self.nonlinloc_hyp_data = swspy.io.read_nonlinloc.read_hyp_file(nonlinloc_event_path)
         if self.nonlinloc_event_path:
             self.origin_time = self.nonlinloc_hyp_data.origin_time
         else:
@@ -747,8 +747,8 @@ class create_splitting_object:
         # Use transverse component to calculate dof
         dof = calc_dof(tr_for_dof.data)
         #conf_bound = ftest(error_surf, dof, alpha=0.05, k=2) # (2 sigma)
+        conf_bound = ftest(error_surf, dof, alpha=0.003, k=2) # (3 sigma)
         #conf_bound = ftest(error_surf, dof, alpha=0.32, k=2) # (1 sigma)
-        conf_bound = ftest(error_surf, dof, alpha=0.003, k=2) # (1 sigma)
         conf_mask = error_surf <= conf_bound
 
         # Find lag dt error:
