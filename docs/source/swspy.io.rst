@@ -12,6 +12,14 @@ swspy.io.load module
    :undoc-members:
    :show-inheritance:
 
+swspy.io.read\_nonlinloc module
+-------------------------------
+
+.. automodule:: swspy.io.read_nonlinloc
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

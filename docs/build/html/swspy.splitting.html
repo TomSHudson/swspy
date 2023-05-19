@@ -198,6 +198,68 @@
 <div class="section" id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
 </div>
+<div class="section" id="module-swspy.splitting.forward_model">
+<span id="swspy-splitting-forward-model-module"></span><h2>swspy.splitting.forward_model module<a class="headerlink" href="#module-swspy.splitting.forward_model" title="Permalink to this headline">¶</a></h2>
+<dl class="py exception">
+<dt id="swspy.splitting.forward_model.CustomError">
+<em class="property">exception </em><code class="sig-prename descclassname">swspy.splitting.forward_model.</code><code class="sig-name descname">CustomError</code><a class="headerlink" href="#swspy.splitting.forward_model.CustomError" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="swspy.splitting.forward_model.add_splitting">
+<code class="sig-prename descclassname">swspy.splitting.forward_model.</code><code class="sig-name descname">add_splitting</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">ZNE_st</span></em>, <em class="sig-param"><span class="n">phi_from_N</span></em>, <em class="sig-param"><span class="n">dt</span></em>, <em class="sig-param"><span class="n">back_azi</span></em>, <em class="sig-param"><span class="n">event_inclin_angle_at_station</span></em>, <em class="sig-param"><span class="n">snr</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.splitting.forward_model.add_splitting" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to add splitting to waveforms in ZNE notation.</p>
+<blockquote>
+<div><p>Parameters</p>
+</div></blockquote>
+<dl class="simple">
+<dt>ZNE_st<span class="classifier">obspy stream</span></dt><dd><p>Obspy stream with Z, N and E traces.</p>
+</dd>
+<dt>phi_from_N<span class="classifier">float</span></dt><dd><p>Angle of fast direction, in degrees from N.</p>
+</dd>
+<dt>dt<span class="classifier">float</span></dt><dd><p>Delay time between fast and slow S-waves, in seconds.</p>
+</dd>
+<dt>back_azi<span class="classifier">float</span></dt><dd><p>Back-azimuth from source to receiver, in degrees from N.</p>
+</dd>
+<dt>event_inclin_angle_at_station<span class="classifier">float</span></dt><dd><p>Inclination of ray at station, in degrees from vertical up.</p>
+</dd>
+<dt>phi_from_up<span class="classifier">float</span></dt><dd><p>Angle of fast direction, in degrees from vertical up. Optional. Default = 0 degrees.</p>
+</dd>
+<dt>snr<span class="classifier">float</span></dt><dd><p>Signal-to-noise-ratio of output source-time function. Optional. If not None, then will
+add white gaussian noise to data.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="swspy.splitting.forward_model.create_src_time_func">
+<code class="sig-prename descclassname">swspy.splitting.forward_model.</code><code class="sig-name descname">create_src_time_func</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">dur</span></em>, <em class="sig-param"><span class="n">fs</span></em>, <em class="sig-param"><span class="n">src_pol_from_N</span><span class="o">=</span><span class="default_value">0</span></em>, <em class="sig-param"><span class="n">src_pol_from_up</span><span class="o">=</span><span class="default_value">0</span></em>, <em class="sig-param"><span class="n">src_freq</span><span class="o">=</span><span class="default_value">10.0</span></em>, <em class="sig-param"><span class="n">wavelet</span><span class="o">=</span><span class="default_value">'ricker'</span></em>, <em class="sig-param"><span class="n">t_src</span><span class="o">=</span><span class="default_value">1.0</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.splitting.forward_model.create_src_time_func" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to create synthetic source time function.</p>
+<blockquote>
+<div><p>Parameters</p>
+</div></blockquote>
+<dl class="simple">
+<dt>dur<span class="classifier">float</span></dt><dd><p>Duration of trace, in seconds.</p>
+</dd>
+<dt>fs<span class="classifier">float</span></dt><dd><p>Sampling rate, in Hz.</p>
+</dd>
+<dt>src_pol_from_N<span class="classifier">float</span></dt><dd><p>Source polarisation from North, in degrees. Optional. Default = 0 degrees.</p>
+</dd>
+<dt>src_pol_from_up<span class="classifier">float</span></dt><dd><p>Source polarisation from vertical up, in degrees. Optional. Default = 0 degrees.</p>
+</dd>
+<dt>src_freq<span class="classifier">float</span></dt><dd><p>Dominant source frequency, in Hz. Optional. Default is 10 Hz.</p>
+</dd>
+<dt>wavelet<span class="classifier">str</span></dt><dd><p>Type of wavelet to use for the source-time function. Optional. Default is ricker.
+Other options not currently implemented.</p>
+</dd>
+<dt>t_src<span class="classifier">float</span></dt><dd><p>Time, in seconds, from the beginning of the trace when the source-time function peaks.
+Optional. Default = 1 s.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
 <div class="section" id="module-swspy.splitting.split">
 <span id="swspy-splitting-split-module"></span><h2>swspy.splitting.split module<a class="headerlink" href="#module-swspy.splitting.split" title="Permalink to this headline">¶</a></h2>
 <dl class="py exception">
@@ -309,10 +371,10 @@ available threads on the system.</p></li>
 <dt>Function to perform splitting analysis for a multi-layered medium. Currently</dt><dd><p>only a 2-layer medium is supported. Works in LQT coordinate system, therefore</p>
 </dd>
 </dl>
-<p>supporting shear-wave-splitting in 3D.</p>
-<p>Currently doesn’t support any method other than &lt;sws_method&gt; = EV and
-doesn’t support returning clustered data.</p>
-<p>Method assumes that apparent delay-time is longer than fast S-wave arrival duration.</p>
+<p>supporting shear-wave-splitting in 3D.
+Currently doesn’t support any method other than &lt;sws_method&gt; = EV and
+doesn’t support returning clustered data.
+Method assumes that apparent delay-time is longer than fast S-wave arrival duration.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -340,14 +402,14 @@ available threads on the system.</p></li>
 
 <dl class="py method">
 <dt id="swspy.splitting.split.create_splitting_object.save_result">
-<code class="sig-name descname">save_result</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">outdir</span><span class="o">=</span><span class="default_value">'/Users/eart0504/Documents/python/github_repositories/swspy/docs'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.splitting.split.create_splitting_object.save_result" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">save_result</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">outdir</span><span class="o">=</span><span class="default_value">'/Users/eart0504/Documents/python/github_repositories/swspy/docs/source'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.splitting.split.create_splitting_object.save_result" title="Permalink to this definition">¶</a></dt>
 <dd><p>Function to save output. Output is a csv file with all the splitting data for the event,
 for all stations. Saves result as &lt;event_uid&gt;, to &lt;outdir&gt;.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt id="swspy.splitting.split.create_splitting_object.save_wfs">
-<code class="sig-name descname">save_wfs</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">outdir</span><span class="o">=</span><span class="default_value">'/Users/eart0504/Documents/python/github_repositories/swspy/docs'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.splitting.split.create_splitting_object.save_wfs" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">save_wfs</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">outdir</span><span class="o">=</span><span class="default_value">'/Users/eart0504/Documents/python/github_repositories/swspy/docs/source'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.splitting.split.create_splitting_object.save_wfs" title="Permalink to this definition">¶</a></dt>
 <dd><p>Function to save waveforms outputs. Outputs are unccorrected and corrected waveforms for
 all events. Saves result as &lt;event_uid&gt;.mseed, to &lt;outdir&gt;.</p>
 </dd></dl>

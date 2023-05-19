@@ -4,6 +4,14 @@ swspy.splitting package
 Submodules
 ----------
 
+swspy.splitting.forward\_model module
+-------------------------------------
+
+.. automodule:: swspy.splitting.forward_model
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 swspy.splitting.split module
 ----------------------------
 
