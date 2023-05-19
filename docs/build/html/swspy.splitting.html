@@ -280,7 +280,7 @@ will calculate splitting for n_win^2 windows in total.</p>
 
 <dl class="py method">
 <dt id="swspy.splitting.split.create_splitting_object.perform_sws_analysis">
-<code class="sig-name descname">perform_sws_analysis</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">coord_system</span><span class="o">=</span><span class="default_value">'ZNE'</span></em>, <em class="sig-param"><span class="n">sws_method</span><span class="o">=</span><span class="default_value">'EV'</span></em>, <em class="sig-param"><span class="n">return_clusters_data</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.splitting.split.create_splitting_object.perform_sws_analysis" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">perform_sws_analysis</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">coord_system</span><span class="o">=</span><span class="default_value">'ZNE'</span></em>, <em class="sig-param"><span class="n">sws_method</span><span class="o">=</span><span class="default_value">'EV'</span></em>, <em class="sig-param"><span class="n">return_clusters_data</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">num_threads</span><span class="o">=</span><span class="default_value">16</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.splitting.split.create_splitting_object.perform_sws_analysis" title="Permalink to this definition">¶</a></dt>
 <dd><p>Function to perform splitting analysis. Works in LQT coordinate system
 as then performs shear-wave-splitting in 3D.</p>
 <dl class="field-list simple">
@@ -295,6 +295,8 @@ al. (2013)). EV_and_XC - Same as EV, except also performs cross-correlation
 for automation approach, as in Wustefeld et al. (2010). Default is EV.</p></li>
 <li><p><strong>return_clusters_data</strong> (<em>bool</em>) – If True, returns clustering data information. This is primarily used for
 plotting. Default is False.</p></li>
+<li><p><strong>num_threads</strong> (<em>int</em>) – Number of threads to use for parallel computing. Default is to use all
+available threads on the system.</p></li>
 </ul>
 </dd>
 </dl>
@@ -302,7 +304,7 @@ plotting. Default is False.</p></li>
 
 <dl class="py method">
 <dt id="swspy.splitting.split.create_splitting_object.perform_sws_analysis_multi_layer">
-<code class="sig-name descname">perform_sws_analysis_multi_layer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">coord_system</span><span class="o">=</span><span class="default_value">'ZNE'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.splitting.split.create_splitting_object.perform_sws_analysis_multi_layer" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">perform_sws_analysis_multi_layer</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">coord_system</span><span class="o">=</span><span class="default_value">'ZNE'</span></em>, <em class="sig-param"><span class="n">multi_layer_method</span><span class="o">=</span><span class="default_value">'explicit'</span></em>, <em class="sig-param"><span class="n">num_threads</span><span class="o">=</span><span class="default_value">16</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.splitting.split.create_splitting_object.perform_sws_analysis_multi_layer" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="simple">
 <dt>Function to perform splitting analysis for a multi-layered medium. Currently</dt><dd><p>only a 2-layer medium is supported. Works in LQT coordinate system, therefore</p>
 </dd>
@@ -313,9 +315,19 @@ doesn’t support returning clustered data.</p>
 <p>Method assumes that apparent delay-time is longer than fast S-wave arrival duration.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>coord_system</strong> (<em>str</em>) – Coordinate system to perform analysis in. Options are: LQT, ZNE. Will convert
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coord_system</strong> (<em>str</em>) – Coordinate system to perform analysis in. Options are: LQT, ZNE. Will convert
 splitting angles back into coordinates relative to ZNE whatever system it
-performs the splitting within. Default = ZNE.</p>
+performs the splitting within. Default = ZNE.</p></li>
+<li><p><strong>multi_layer_method</strong> (<em>str</em>) – Multi-layer method algorithm to apply. Two options are:
+1. explicit - Applies layers individually, one at a time. Efficient and far fewer
+free parameters, as computation scales as (n_phi * n_dt) * n-layers.
+2. direct - Applies layers directly together in the inversion. Computationally
+expensive relative to explicit method, with many free parameters, as computation
+scales as (n_phi * n_dt) ^ n-layers.</p></li>
+<li><p><strong>num_threads</strong> (<em>int</em>) – Number of threads to use for parallel computing. Default is to use all
+available threads on the system.</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>

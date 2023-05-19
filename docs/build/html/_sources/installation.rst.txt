@@ -2,26 +2,22 @@ Installation
 ============
 swspy can currently be installed via PyPi (pip install swspy) or a manual install. For the most stable version, select PyPi, for the most up to date versionm select a manual install. 
 
-Prerequisites
+Dependencies
 -------------
 The package has the following dependencies:
 
 numpy
-matplotlib
-mpl_toolkits
-pandas
-numba
 scipy
-sklearn
+pandas
+matplotlib
+scikit-learn
 obspy
-sys
-os
-glob
-subprocess
-gc
-time
-pathlib
-NonLinLocPy
+numba
+(And for testing:
+pytest
+nbformat
+nbconvert
+ipykernel)
 
 Installing
 ----------
