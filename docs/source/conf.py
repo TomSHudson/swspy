@@ -14,7 +14,6 @@ import os
 import sys
 import glob
 import sphinx_rtd_theme
-import mock
 
 # Add swspy path:
 sys.path.insert(0, os.path.abspath(os.path.join("..","..")))
@@ -26,9 +25,10 @@ project = 'swspy'
 copyright = '2021, Tom S Hudson'
 author = 'Tom S Hudson'
 
-# The full version, including alpha/beta/rc tags
-from swspy import __version__ 
-release = __version__
+# The full version:
+# from swspy import __version__ 
+# release = __version__
+release = "1.0.0"
 
 
 # -- General configuration ---------------------------------------------------
