@@ -22,7 +22,6 @@ import os, sys
 from pathlib import Path
 import pandas as pd
 import gc 
-from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
 
 class proc_many_events:
     """
@@ -191,7 +190,7 @@ class proc_many_events:
             count+=1
             # 1. Get waveform and other event data:
             try:
-                nlloc_hyp_data = read_nonlinloc.read_hyp_file(nlloc_fname)
+                nlloc_hyp_data = swspy.io.read_nonlinloc.read_hyp_file(nlloc_fname)
                 starttime = nlloc_hyp_data.origin_time - event_prepad
                 endtime = nlloc_hyp_data.origin_time + event_postpad
                 load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)

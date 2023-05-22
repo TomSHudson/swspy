@@ -12,7 +12,11 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join("..","..","swspy")))
+import glob
+import sphinx_rtd_theme
+
+# Add swspy path:
+sys.path.insert(0, os.path.abspath(os.path.join("..","..")))
 
 
 # -- Project information -----------------------------------------------------
@@ -21,8 +25,10 @@ project = 'swspy'
 copyright = '2021, Tom S Hudson'
 author = 'Tom S Hudson'
 
-# The full version, including alpha/beta/rc tags
-release = '0.0.1'
+# The full version:
+# from swspy import __version__ 
+# release = __version__
+release = "1.0.1"
 
 
 # -- General configuration ---------------------------------------------------
@@ -33,8 +39,12 @@ release = '0.0.1'
 extensions = [
     "nbsphinx",
     "sphinx.ext.autodoc",
-    "sphinx.ext.napoleon"
+    "sphinx.ext.napoleon",
+    'sphinx.ext.autosummary',
 ]
+
+# Specify master doc:
+master_doc = "index"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -51,6 +61,9 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 html_theme = 'sphinx_rtd_theme'
+
+# Automatically generate submodule docs:
+autosummary_generate = glob.glob("submodules" + os.sep + "*.rst")
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

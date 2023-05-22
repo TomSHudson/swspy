@@ -1,0 +1,433 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>swspy.automate package &mdash; swspy 1.0.1 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="swspy.io package" href="swspy.io.html" />
+    <link rel="prev" title="swspy package" href="swspy.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> swspy
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinate_system.html">Coordinate System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">swspy</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="swspy.html">swspy package</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="swspy.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l4 current"><a class="current reference internal" href="#">swspy.automate package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="swspy.io.html">swspy.io package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="swspy.splitting.html">swspy.splitting package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="swspy.html#module-swspy">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">swspy</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="modules.html">swspy</a> &raquo;</li>
+        
+          <li><a href="swspy.html">swspy package</a> &raquo;</li>
+        
+      <li>swspy.automate package</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/swspy.automate.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="swspy-automate-package">
+<h1>swspy.automate package<a class="headerlink" href="#swspy-automate-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-swspy.automate.automation_manager">
+<span id="swspy-automate-automation-manager-module"></span><h2>swspy.automate.automation_manager module<a class="headerlink" href="#module-swspy.automate.automation_manager" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="swspy.automate.automation_manager.proc_many_events">
+<em class="property">class </em><code class="sig-prename descclassname">swspy.automate.automation_manager.</code><code class="sig-name descname">proc_many_events</code><a class="headerlink" href="#swspy.automate.automation_manager.proc_many_events" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Class to process many events to calculate shear-wave splitting.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>None.</strong> – </p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt id="swspy.automate.automation_manager.proc_many_events.filter">
+<code class="sig-name descname">filter</code><a class="headerlink" href="#swspy.automate.automation_manager.proc_many_events.filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>If True, then filters the data by &lt;filter_freq_min_max&gt;.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool (default = False)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="swspy.automate.automation_manager.proc_many_events.filter_freq_min_max">
+<code class="sig-name descname">filter_freq_min_max</code><a class="headerlink" href="#swspy.automate.automation_manager.proc_many_events.filter_freq_min_max" title="Permalink to this definition">¶</a></dt>
+<dd><p>Filter parameters for filtering the data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list of two floats (default = [1.0, 100.0])</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="swspy.automate.automation_manager.proc_many_events.overall_win_start_pre_fast_S_pick">
+<code class="sig-name descname">overall_win_start_pre_fast_S_pick</code><a class="headerlink" href="#swspy.automate.automation_manager.proc_many_events.overall_win_start_pre_fast_S_pick" title="Permalink to this definition">¶</a></dt>
+<dd><p>Overall window start time in seconds before S pick.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float (default = 0.1 s)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="simple">
+<dt>overall_win_start_post_fast_S_pick<span class="classifier">float (default = 0.2 s)</span></dt><dd><p>Overall window start time in seconds after S pick.</p>
+</dd>
+<dt>win_S_pick_tolerance<span class="classifier">float (default = 0.1 s)</span></dt><dd><p>Time before and after S pick to not allow windows to start within (in seconds).
+For example, start windows start at:
+S arrival time - (&lt;overall_win_start_pre_fast_S_pick&gt; + &lt;win_S_pick_tolerance&gt;)
+And end times windows start at:
+S arrival time + &lt;win_S_pick_tolerance&gt; + &lt;overall_win_start_post_fast_S_pick&gt;</p>
+</dd>
+<dt>rotate_step_deg<span class="classifier">float (default = 2.0 degrees)</span></dt><dd><p>Rotation step size of phi in degrees for the grid search in phi-delay-time space.</p>
+</dd>
+<dt>max_t_shift_s<span class="classifier">float (default = 0.1 s)</span></dt><dd><p>The maximum time shift the data by in seconds.</p>
+</dd>
+<dt>n_win<span class="classifier">int (default = 10)</span></dt><dd><p>The number of window start and end times to pick. Currently implemented as
+constant window step sizes within the specified range, as defined by
+&lt;overall_win_start_pre_fast_S_pick&gt; amd &lt;win_S_pick_tolerance&gt;. Therefore,
+will calculate splitting for n_win^2 windows in total.</p>
+</dd>
+<dt>downsample_factor<span class="classifier">int (default = 1)</span></dt><dd><p>Factor by which to downsample the data, to speed up processing.
+If &lt;downsample_factor&gt; = 1, doens’t apply downsampling.</p>
+</dd>
+<dt>upsample_factor<span class="classifier">int (default = 1)</span></dt><dd><p>Factor by which to upsample the data, to smooth waveforms for enhanced
+timeshift processing. Currently uses weighted average slopes
+interpolation method.
+If &lt;upsample_factor&gt; = 1, doens’t apply upsampling.</p>
+</dd>
+<dt>coord_system<span class="classifier">str</span></dt><dd><p>Coordinate system to perform analysis in. Options are: LQT, ZNE. Will convert
+splitting angles back into coordinates relative to ZNE whatever system it
+performs the splitting within. Default = ZNE.</p>
+</dd>
+<dt>sws_method<span class="classifier">str</span></dt><dd><p>Method with which to calculate sws parameters. Options are: EV, EV_and_XC.
+EV - Eigenvalue method (as in Silver and Chan (1991), Teanby (2004), Walsh et
+al. (2013)). EV_and_XC - Same as EV, except also performs cross-correlation
+for automation approach, as in Wustefeld et al. (2010). Default is EV_and_XC.</p>
+</dd>
+<dt>output_wfs<span class="classifier">bool</span></dt><dd><p>If True, will save uncorrected and corrected waveforms to:
+&lt;outdir&gt;/&lt;data&gt;/&lt;event_uid&gt;_wfs_uncorr.png
+and
+&lt;outdir&gt;/&lt;data&gt;/&lt;event_uid&gt;_wfs_corr.png
+Default is True.</p>
+</dd>
+<dt>output_plots<span class="classifier">bool</span></dt><dd><p>If True, will save output plots to:
+&lt;outdir&gt;/&lt;plots&gt;/&lt;event_uid&gt;_&lt;station&gt;.png
+Default is False.</p>
+</dd>
+<dt>suppress_direct_plotting<span class="classifier">bool</span></dt><dd><p>If True, suppresses direct plotting so plots are only saved to file (and will
+only save plots to file if &lt;output_plots=True&gt;). Default = False</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="swspy.automate.automation_manager.proc_many_events.run_events_from_nlloc">
+<code class="sig-name descname">run_events_from_nlloc</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#swspy.automate.automation_manager.proc_many_events.run_events_from_nlloc" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="swspy.automate.automation_manager.proc_many_events.run_events_sws_fmt">
+<code class="sig-name descname">run_events_sws_fmt</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#swspy.automate.automation_manager.proc_many_events.run_events_sws_fmt" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt id="id0">
+<code class="sig-name descname">run_events_from_nlloc</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">mseed_archive_dir</span></em>, <em class="sig-param"><span class="n">nlloc_dir</span></em>, <em class="sig-param"><span class="n">outdir</span></em>, <em class="sig-param"><span class="n">event_prepad</span><span class="o">=</span><span class="default_value">1.0</span></em>, <em class="sig-param"><span class="n">event_postpad</span><span class="o">=</span><span class="default_value">30.0</span></em>, <em class="sig-param"><span class="n">nproc</span><span class="o">=</span><span class="default_value">1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#id0" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to run many events through shear-wave splitting analysis using
+nonlinloc and mseed data (in archive format: &lt;mseed_archive_dir&gt;/&lt;year&gt;/
+&lt;julday&gt;/…).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mseed_archive_dir</strong> (<em>str</em>) – Path to mseed archive overall directory. Subdirectory paths should be
+in format: &lt;mseed_archive_dir&gt;/&lt;year&gt;/&lt;julday&gt;/yearjulday_station_channel.m.</p></li>
+<li><p><strong>nlloc_dir</strong> (<em>str</em>) – Path to nlloc .grid0.loc.hyp output files corresponding to events that want
+to process.</p></li>
+<li><p><strong>outdir</strong> (<em>str</em>) – Path to output directory to save data to. Saves results to:
+csv event summary file: &lt;outdir&gt;/&lt;data&gt;/event_uid.csv
+And if &lt;output_plots&gt; is specified, then will output plots to:
+png event station file: &lt;outdir&gt;/&lt;data&gt;/&lt;event_uid&gt;_&lt;station&gt;.png</p></li>
+<li><p><strong>event_prepad</strong> (<em>float</em>) – </p></li>
+<li><p><strong>event_postpad</strong> (<em>float</em>) – </p></li>
+<li><p><strong>nproc</strong> (<em>int</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Data output to files in outdir, as specified above.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="id1">
+<code class="sig-name descname">run_events_sws_fmt</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">datadir</span></em>, <em class="sig-param"><span class="n">outdir</span></em>, <em class="sig-param"><span class="n">S_pick_time_after_start_s</span><span class="o">=</span><span class="default_value">10.0</span></em><span class="sig-paren">)</span><a class="headerlink" href="#id1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to run many events through shear-wave splitting analysis using
+sws format and sac data.</p>
+<p>————————— sws format notes: —————————</p>
+<p>Data directories containing sac data must be
+formatted as follows:
+&lt;datadir&gt;/event_uid/<em>.?H</em></p>
+<p>Sac data for each event must be trimmed with &lt;S_pick_time_after_start_s&gt;
+seconds padding before the S pick and sufficient padding after. Additionally,
+sac data must have back azimuth information (and inclination info. if not
+using ZNE coordinate system).
+————————————————————————-</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>datadir</strong> (<em>str</em>) – The overall directory path containing all events with event unique IDs
+as each directory, with each directory containing SAC files for each
+component of each station. I.e. data follows format:
+&lt;datadir&gt;/event_uid/<em>.?H</em></p></li>
+<li><p><strong>outdir</strong> (<em>str</em>) – Path to output directory to save data to. Saves results to:
+csv event summary file: &lt;outdir&gt;/&lt;data&gt;/event_uid.csv
+And if &lt;output_plots&gt; is specified, then will output plots to:
+png event station file: &lt;outdir&gt;/&lt;data&gt;/&lt;event_uid&gt;_&lt;station&gt;.png</p></li>
+<li><p><strong>S_pick_time_after_start_s</strong> (<em>float</em>) – Time, in seconds, of S pick after start of SAC trace. Default is 10.0 s.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-swspy.automate">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-swspy.automate" title="Permalink to this headline">¶</a></h2>
+<p>Submodule for undertaking autmoated splitting analysis.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="swspy.io.html" class="btn btn-neutral float-right" title="swspy.io package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="swspy.html" class="btn btn-neutral float-left" title="swspy package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2021, Tom S Hudson
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

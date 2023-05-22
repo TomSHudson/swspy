@@ -11,13 +11,14 @@
 #-----------------------------------------------------------------------------------------------------------------------------------------
 
 # Import neccessary modules:
+import swspy
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import pandas as pd 
 import numba 
-from numba import jit, set_num_threads, prange, float64, int64
+from numba import jit, njit, types, set_num_threads, prange, float64, int64
 from scipy import stats, interpolate
 from sklearn import cluster
 from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering
@@ -27,7 +28,6 @@ import sys, os
 import glob
 import subprocess
 import gc
-from NonLinLocPy import read_nonlinloc # For reading NonLinLoc data (can install via pip)
 import time 
 
 
@@ -368,6 +368,10 @@ def ftest(data, dof, alpha=0.05, k=2, min_max='min'):
     return conf_bound
 
 
+# @jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:], float64[:,:,:]), nopython=True, parallel=True)
+#@njit((types.float64[:], types.float64[:], types.int64[:], types.int64[:], types.int64, types.int64, types.int64, types.float64, types.float64, types.float64[:,:,:], types.float64[:,:,:]), parallel=True)
+# @jit(nopython=True, parallel=True)
+#@njit()#parallel=True)
 @jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:], float64[:,:,:]), nopython=True, parallel=True)
 def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                     grid_search_results_all_win_EV, grid_search_results_all_win_XC):
@@ -418,8 +422,7 @@ def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_
                     # if len(grid_search_results_all_win_XC) > 0:
                         # Calculate XC coeffecient and save to array:
                         # if np.std(rolled_rot_Q_curr)  * np.std(rolled_rot_T_curr) > 0. and len(rolled_rot_T_curr) > 0:
-                    grid_search_results_all_win_XC[grid_search_idx,i,j] = np.sum( np.abs(rolled_rot_Q_curr * rolled_rot_T_curr) / (np.std(rolled_rot_Q_curr) * 
-                                                                np.std(rolled_rot_T_curr))) / len(rolled_rot_T_curr)
+                    grid_search_results_all_win_XC[grid_search_idx,i,j] = np.sum( np.abs(rolled_rot_Q_curr * rolled_rot_T_curr) / (np.std(rolled_rot_Q_curr) * np.std(rolled_rot_T_curr))) / float(len(rolled_rot_T_curr))
 
     return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
 
@@ -633,7 +636,7 @@ class create_splitting_object:
         self.st = st 
         self.nonlinloc_event_path = nonlinloc_event_path
         if self.nonlinloc_event_path:
-            self.nonlinloc_hyp_data = read_nonlinloc.read_hyp_file(nonlinloc_event_path)
+            self.nonlinloc_hyp_data = swspy.io.read_nonlinloc.read_hyp_file(nonlinloc_event_path)
         if self.nonlinloc_event_path:
             self.origin_time = self.nonlinloc_hyp_data.origin_time
         else:
@@ -706,7 +709,6 @@ class create_splitting_object:
 
         # Perform grid search:
         if n_layers == 1:
-            set_num_threads(int(num_threads))
             grid_search_results_all_win_EV, grid_search_results_all_win_XC = _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, grid_search_results_all_win_EV, grid_search_results_all_win_XC)
         elif n_layers == 2:
             set_num_threads(int(num_threads))
@@ -744,8 +746,9 @@ class create_splitting_object:
         # Find grid search array points where within confidence interval:
         # Use transverse component to calculate dof
         dof = calc_dof(tr_for_dof.data)
-        conf_bound = ftest(error_surf, dof, alpha=0.05, k=2)
-        # conf_bound = ftest(error_surf, dof, alpha=0.33, k=2)
+        #conf_bound = ftest(error_surf, dof, alpha=0.05, k=2) # (2 sigma)
+        conf_bound = ftest(error_surf, dof, alpha=0.003, k=2) # (3 sigma)
+        #conf_bound = ftest(error_surf, dof, alpha=0.32, k=2) # (1 sigma)
         conf_mask = error_surf <= conf_bound
 
         # Find lag dt error:
@@ -1088,6 +1091,11 @@ class create_splitting_object:
             Number of threads to use for parallel computing. Default is to use all 
             available threads on the system.
 
+        Returns
+        -------
+        self.sws_result_df : pandas DataFrame
+            A pandas DataFrame containing the key splitting results.
+
         """
         # Save any parameters to class object:
         self.coord_system = coord_system
@@ -1263,10 +1271,8 @@ class create_splitting_object:
         """Function to perform splitting analysis for a multi-layered medium. Currently 
          only a 2-layer medium is supported. Works in LQT coordinate system, therefore 
         supporting shear-wave-splitting in 3D.
-
         Currently doesn't support any method other than <sws_method> = EV and 
         doesn't support returning clustered data.
-
         Method assumes that apparent delay-time is longer than fast S-wave arrival duration.
         
         Parameters
@@ -1288,6 +1294,15 @@ class create_splitting_object:
             Number of threads to use for parallel computing. Default is to use all 
             available threads on the system.
 
+        Returns
+        -------
+        self.sws_result_df : pandas DataFrame
+            A pandas DataFrame containing the key splitting results for an apparent splitting 
+            measurement (i.e. assuming only one layer).
+
+        self.sws_multi_layer_result_df pandas DataFrame
+            A pandas DataFrame containing the key splitting results for hte multi-layer result.
+
         """
         # Save any parameters to class object:
         self.coord_system = coord_system
@@ -1305,6 +1320,8 @@ class create_splitting_object:
                                                 'src_pol_from_U_err': [], 'Q_w': [], 'lambda2/lambda1 ratio': [], 'lambda2/lambda1 ratio1': [], 
                                                 'lambda2/lambda1 ratio2': [], 'ray_back_azi': [], 'ray_inc': []})
         self.phi_dt_grid_average = {}
+        self.phi_dt_grid_average_layer1 = {}
+        self.phi_dt_grid_average_layer2 = {}
         self.event_station_win_idxs = {}
 
         # 0. Get initial, apparent splitting parameters:
@@ -1388,8 +1405,8 @@ class create_splitting_object:
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
                 phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win1, tr_T)         
-                opt_phi_win1, opt_lag_win1, opt_phi_err_win1, opt_lag_err_win1, opt_eig_ratio1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
-                                                                                                                        min_eig_ratios=min_eig_ratios, method="dbscan")
+                opt_phi_win1, opt_lag_win1, opt_phi_err_win1, opt_lag_err_win1, opt_eig_ratio1, clusters_dict1, min_var_idx1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
+                                                                                                                        min_eig_ratios=min_eig_ratios, method="dbscan", return_clusters_data=True)
                 if not opt_phi_win1:
                     continue # If didn't cluster, skip station
                 # 2.b. For second window:
@@ -1399,10 +1416,11 @@ class create_splitting_object:
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
                 phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_win2, tr_T)         
-                opt_phi_win2, opt_lag_win2, opt_phi_err_win2, opt_lag_err_win2, opt_eig_ratio2 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
-                                                                                                                        min_eig_ratios=min_eig_ratios, method="dbscan")
+                opt_phi_win2, opt_lag_win2, opt_phi_err_win2, opt_lag_err_win2, opt_eig_ratio2, clusters_dict2, min_var_idx2 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
+                                                                                                                        min_eig_ratios=min_eig_ratios, method="dbscan", return_clusters_data=True)
                 if not opt_phi_win2:
                     continue # If didn't cluster, skip station
+
                 # 2.c. Pick best (most linearised) result:
                 min_EV_both_wins = np.array([opt_eig_ratio1, opt_eig_ratio2])
                 min_EV_both_wins[min_EV_both_wins==0] = 1e6 # Remove effect of any exact zero eigenvalues (spurious results), while preseerving indices
@@ -1412,6 +1430,18 @@ class create_splitting_object:
                 opt_phi_err_layer2 = np.array([opt_phi_err_win1, opt_phi_err_win2])[best_win_idx]
                 opt_lag_err_layer2 = np.array([opt_lag_err_win1, opt_lag_err_win2])[best_win_idx]
                 opt_eig_ratio_layer2 = np.min(min_EV_both_wins)
+                if best_win_idx == 0:
+                    grid_search_results_all_win_EV_layer2 = grid_search_results_all_win_EV_win1
+                    self.clustering_info[station] = {}
+                    self.clustering_info[station]['layer2'] = {}
+                    self.clustering_info[station]['layer2']['min_var_idx'] = min_var_idx1
+                    self.clustering_info[station]['layer2']['clusters_dict'] = clusters_dict1
+                elif best_win_idx == 1:
+                    grid_search_results_all_win_EV_layer2 = grid_search_results_all_win_EV_win2
+                    self.clustering_info[station] = {}
+                    self.clustering_info[station]['layer2'] = {}
+                    self.clustering_info[station]['layer2']['min_var_idx'] = min_var_idx2
+                    self.clustering_info[station]['layer2']['clusters_dict'] = clusters_dict2
                     
                 # 3. Remove effect of layer 2 anisotropy:
                 st_ZNE_curr_sws_layer_2_removed = remove_splitting(st_ZNE_curr, opt_phi_layer2, opt_lag_layer2, back_azi, event_inclin_angle_at_station, return_BPA=False)
@@ -1427,8 +1457,12 @@ class create_splitting_object:
                 self.lags_labels = lags_labels 
                 self.phis_labels = phis_labels 
                 phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV_layer1, tr_T)         
-                opt_phi_layer1, opt_lag_layer1, opt_phi_err_layer1, opt_lag_err_layer1, opt_eig_ratio_layer1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
-                                                                                                                                min_eig_ratios=min_eig_ratios, method="dbscan")
+                opt_phi_layer1, opt_lag_layer1, opt_phi_err_layer1, opt_lag_err_layer1, opt_eig_ratio_layer1, clusters_dict_layer1, min_var_idx_layer1 = self._sws_win_clustering(lags, phis, lag_errs, phi_errs, 
+                                                                                                                                min_eig_ratios=min_eig_ratios, method="dbscan", return_clusters_data=True)
+                # And write clustering info:
+                self.clustering_info[station]['layer1'] = {}
+                self.clustering_info[station]['layer1']['min_var_idx'] = min_var_idx_layer1
+                self.clustering_info[station]['layer1']['clusters_dict'] = clusters_dict_layer1
                 if not opt_phi_layer1:
                     continue # If didn't cluster, skip station
                 
@@ -1471,6 +1505,7 @@ class create_splitting_object:
                 opt_eig_ratio_layer1, opt_eig_ratio_layer2 = opt_eig_ratio, opt_eig_ratio
                 grid_search_results_all_win_EV_layer1 = grid_search_result_multi_layer_inv[:, abs_min_indices[1], abs_min_indices[2], 
                                                                                            :, :]
+                grid_search_results_all_win_EV_layer2 = np.zeros(np.shape(grid_search_results_all_win_EV_layer1)) # Set layer 2 to zeros, simply as can't untangle result.
                 del grid_search_result_multi_layer_inv
                 gc.collect()
 
@@ -1539,6 +1574,8 @@ class create_splitting_object:
             except IndexError:
                 raise CustomError("Cannot find optimal phi or lag.")
             self.phi_dt_grid_average[station] = np.average(grid_search_results_all_win_EV_layer1, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
+            self.phi_dt_grid_average_layer1[station] = np.average(grid_search_results_all_win_EV_layer1, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
+            self.phi_dt_grid_average_layer2[station] = np.average(grid_search_results_all_win_EV_layer2, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
             self.event_station_win_idxs[station] = {}
             self.event_station_win_idxs[station]['win_start_idxs'] = win_start_idxs
             self.event_station_win_idxs[station]['win_end_idxs'] = win_end_idxs
@@ -1578,6 +1615,15 @@ class create_splitting_object:
                 src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N_err'])
                 Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
                 opt_eig_ratio_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['lambda2/lambda1 ratio'])
+                if self.sws_multi_layer_result_df is not None:
+                    dt_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1'])
+                    dt_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1_err'])
+                    dt_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2'])
+                    dt_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2_err'])
+                    phi_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_from_N'])
+                    phi_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_err'])
+                    phi_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_from_N'])
+                    phi_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_err'])
             except TypeError:
                 # If cannot get parameters becuase splitting clustering failed, skip station:
                 print("Cannot get splitting parameters because splitting clustering failed. Skipping station:", 
@@ -1730,30 +1776,80 @@ class create_splitting_object:
             ne_corr_ax.set_ylim(-1.1*max_amp, 1.1*max_amp)
 
             # phi - dt space:
-            Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
-            Z = self.phi_dt_grid_average[station]
-            # phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
-            CS = phi_dt_ax.contourf(X, Y, Z, levels=20, cmap="magma")
-            CS2 = phi_dt_ax.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.25)
-            phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g', capsize=5)
+            # Plot for single layer:
+            if self.sws_multi_layer_result_df is None:
+                Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
+                Z = self.phi_dt_grid_average[station]
+                # phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
+                CS = phi_dt_ax.contourf(X, Y, Z, levels=20, cmap="magma")
+                CS2 = phi_dt_ax.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.25)
+                phi_dt_ax.errorbar(dt_curr , phi_curr, xerr=dt_err_curr, yerr=phi_err_curr, c='g', capsize=5)
+            # Or plot for double layer:
+            else:
+                # Setup new axes:
+                phi_dt_ax_layer1 = phi_dt_ax.inset_axes([0, 0, 1.0, 0.5])#([0, 0, 0.5, 1.0])
+                phi_dt_ax_layer2 = phi_dt_ax.inset_axes([0, 0.5, 1.0, 0.5])#([0.5, 0, 0.5, 1.0])
+                # And plot data:
+                Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
+                Z1 = self.phi_dt_grid_average_layer1[station]
+                Z2 = self.phi_dt_grid_average_layer2[station]
+                CS = phi_dt_ax_layer1.contourf(X, Y, Z1, levels=20, cmap="magma")
+                CS2 = phi_dt_ax_layer1.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.25)
+                phi_dt_ax_layer1.errorbar(dt_layer1 , phi_layer1, xerr=dt_err_layer1, yerr=phi_err_layer1, c='g', capsize=5)  
+                phi_dt_ax_layer1.set_xlim(self.lags_labels[0], self.lags_labels[-1])
+                phi_dt_ax_layer1.set_ylim(self.phis_labels[0], self.phis_labels[-1])
+                CS = phi_dt_ax_layer2.contourf(X, Y, Z2, levels=20, cmap="magma")
+                CS2 = phi_dt_ax_layer2.contour(CS, levels=CS.levels[1::2], colors='w', alpha=0.25)
+                phi_dt_ax_layer2.errorbar(dt_layer2 , phi_layer2, xerr=dt_err_layer2, yerr=phi_err_layer2, c='g', capsize=5)
+                phi_dt_ax_layer2.set_xlim(self.lags_labels[0], self.lags_labels[-1])
+                phi_dt_ax_layer2.set_ylim(self.phis_labels[0], self.phis_labels[-1])
+                # And sort axes:
+                phi_dt_ax_layer1.set_xlabel(r'$\delta t_{layer 1,2}$ ($s$)')
+                # phi_dt_ax_layer2.set_xlabel(r'$\delta t_{layer 2}$ ($s$)')
+                phi_dt_ax_layer2.get_xaxis().set_visible(False)
+                phi_dt_ax_layer1.set_ylabel(r'$\phi_{layer 1}$ from Q ($^o$)')
+                phi_dt_ax_layer2.set_ylabel(r'$\phi_{layer 2}$ from Q ($^o$)')
+                # phi_dt_ax_layer2.get_yaxis().set_visible(False)
 
             # Add clustering data if available:
             if self.clustering_info:
-                clust_idxs = list(self.clustering_info[station]['clusters_dict'].keys())
-                samp_idx_count = 0
-                for clust_idx in clust_idxs:
-                    # PLot cluster phis:
-                    y_tmp = self.clustering_info[station]['clusters_dict'][clust_idx]['phis']
-                    x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
-                    y_err = self.clustering_info[station]['clusters_dict'][clust_idx]['phi_errs']
-                    cluster_results_ax_phi.errorbar(x_tmp, y_tmp, yerr=y_err, c='k', markersize=2.5, alpha=0.5)
-                    # And plot cluster dts:
-                    y_tmp = self.clustering_info[station]['clusters_dict'][clust_idx]['lags']
-                    x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
-                    y_err = self.clustering_info[station]['clusters_dict'][clust_idx]['lag_errs']
-                    cluster_results_ax_dt.errorbar(x_tmp, y_tmp, yerr=y_err, c='k', markersize=2.5, alpha=0.5)                    
-                    # And update x sample count:
-                    samp_idx_count = samp_idx_count + len(y_tmp)
+                # Plot clustering for multi-layer explicit result, if exists:
+                if "layer1" in self.clustering_info[station]:
+                    clust_idxs = list(self.clustering_info[station]['layer1']['clusters_dict'].keys())
+                    samp_idx_count = 0
+                    for clust_idx in clust_idxs:
+                        samp_idx_count_overall = samp_idx_count
+                        for layer_id in ['layer1', 'layer2']:
+                            samp_idx_count = samp_idx_count_overall
+                            # PLot cluster phis:
+                            y_tmp = self.clustering_info[station][layer_id]['clusters_dict'][clust_idx]['phis']
+                            x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
+                            y_err = self.clustering_info[station][layer_id]['clusters_dict'][clust_idx]['phi_errs']
+                            cluster_results_ax_phi.errorbar(x_tmp, y_tmp, yerr=y_err, markersize=2.5, alpha=0.5)
+                            # And plot cluster dts:
+                            y_tmp = self.clustering_info[station][layer_id]['clusters_dict'][clust_idx]['lags']
+                            x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
+                            y_err = self.clustering_info[station][layer_id]['clusters_dict'][clust_idx]['lag_errs']
+                            cluster_results_ax_dt.errorbar(x_tmp, y_tmp, yerr=y_err, markersize=2.5, alpha=0.5)                    
+                            # And update x sample count:
+                            samp_idx_count = samp_idx_count + len(y_tmp)
+                # Or plot single clustering, if not explicit multi-layer result:
+                else:    
+                    clust_idxs = list(self.clustering_info[station]['clusters_dict'].keys())
+                    samp_idx_count = 0
+                    for clust_idx in clust_idxs:
+                        # PLot cluster phis:
+                        y_tmp = self.clustering_info[station]['clusters_dict'][clust_idx]['phis']
+                        x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
+                        y_err = self.clustering_info[station]['clusters_dict'][clust_idx]['phi_errs']
+                        cluster_results_ax_phi.errorbar(x_tmp, y_tmp, yerr=y_err, c='k', markersize=2.5, alpha=0.5)
+                        # And plot cluster dts:
+                        y_tmp = self.clustering_info[station]['clusters_dict'][clust_idx]['lags']
+                        x_tmp = np.arange(samp_idx_count, samp_idx_count+len(y_tmp))
+                        y_err = self.clustering_info[station]['clusters_dict'][clust_idx]['lag_errs']
+                        cluster_results_ax_dt.errorbar(x_tmp, y_tmp, yerr=y_err, c='k', markersize=2.5, alpha=0.5)                    
+                        # And update x sample count:
+                        samp_idx_count = samp_idx_count + len(y_tmp)
                 # And set limits and labels:
                 cluster_results_ax_phi.set_ylim(-90, 90)
                 cluster_results_ax_dt.set_ylim(0, np.max(self.lags_labels))
@@ -1766,16 +1862,8 @@ class create_splitting_object:
             text_ax.text(0,-1,"Station : "+station, fontsize='small')
             # Plot intermediate post layer 2 correction (multi-layer splitting):
             if self.sws_multi_layer_result_df is not None:
-                dt_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1'])
-                dt_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1_err'])
-                dt_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2'])
-                dt_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2_err'])
                 text_ax.text(0,-2,r"$\delta$ $t_{layer 1}$ : "+str(dt_layer1)+" +/-"+str(round(dt_err_layer1, 5))+" $s$", fontsize='small')
                 text_ax.text(0,-3,r"$\delta$ $t_{layer 2}$ : "+str(dt_layer2)+" +/-"+str(round(dt_err_layer2, 5))+" $s$", fontsize='small')
-                phi_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_from_N'])
-                phi_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_err'])
-                phi_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_from_N'])
-                phi_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_err'])
                 text_ax.text(0,-4,r"$\phi_{layer 1}$ from N : "+"{0:0.1f}".format(phi_layer1)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_layer1)+"$^o$", fontsize='small')
                 text_ax.text(0,-5,r"$\phi_{layer 2}$ from N : "+"{0:0.1f}".format(phi_layer2)+"$^o$"+" +/-"+"{0:0.1f}".format(phi_err_layer2)+"$^o$", fontsize='small')
                 text_ax.text(0,-6,''.join(("src pol from N: ","{0:0.1f}".format(src_pol_curr),"$^o$"," +/-","{0:0.1f}".format(src_pol_err_curr),"$^o$")), fontsize='small')
@@ -1811,7 +1899,9 @@ class create_splitting_object:
             if self.sws_multi_layer_result_df is None:
                 phi_dt_ax.set_ylabel(r'$\phi$ from Q ($^o$)')
             else:
-                phi_dt_ax.set_ylabel(r'$\phi_{layer 1}$ from Q ($^o$)')
+                phi_dt_ax.set_ylabel(r'$\phi_{layer 1,2}$ from Q ($^o$)')
+                phi_dt_ax.get_xaxis().set_visible(False)
+                phi_dt_ax.get_yaxis().set_visible(False)
 
             # plt.colorbar()
             # plt.tight_layout()
