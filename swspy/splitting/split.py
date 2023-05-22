@@ -1091,6 +1091,11 @@ class create_splitting_object:
             Number of threads to use for parallel computing. Default is to use all 
             available threads on the system.
 
+        Returns
+        -------
+        self.sws_result_df : pandas DataFrame
+            A pandas DataFrame containing the key splitting results.
+
         """
         # Save any parameters to class object:
         self.coord_system = coord_system
@@ -1288,6 +1293,15 @@ class create_splitting_object:
         num_threads : int
             Number of threads to use for parallel computing. Default is to use all 
             available threads on the system.
+
+        Returns
+        -------
+        self.sws_result_df : pandas DataFrame
+            A pandas DataFrame containing the key splitting results for an apparent splitting 
+            measurement (i.e. assuming only one layer).
+
+        self.sws_multi_layer_result_df pandas DataFrame
+            A pandas DataFrame containing the key splitting results for hte multi-layer result.
 
         """
         # Save any parameters to class object:

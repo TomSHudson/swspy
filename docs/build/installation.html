@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Python Module Index &mdash; swspy 0.0.1 documentation</title>
+  <title>Installation &mdash; swspy 1.0.0 documentation</title>
   
 
   
@@ -37,9 +37,8 @@
     
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
- 
-
-
+    <link rel="next" title="Coordinate System" href="coordinate_system.html" />
+    <link rel="prev" title="swspy Documentation" href="index.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -85,8 +84,17 @@
             
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#installing">Installing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#manual-install-from-source">Manual install from source</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#pip-install">pip install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#conda-install">conda install</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="coordinate_system.html">Coordinate System</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">swspy</a></li>
@@ -136,10 +144,14 @@
     
       <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
         
-      <li>Python Module Index</li>
+      <li>Installation</li>
     
     
       <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/installation.rst.txt" rel="nofollow"> View page source</a>
+          
         
       </li>
     
@@ -151,70 +163,86 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
 
-   <h1>Python Module Index</h1>
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
 
-   <div class="modindex-jumpbox">
-   <a href="#cap-s"><strong>s</strong></a>
-   </div>
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
 
-   <table class="indextable modindextable">
-     <tr class="pcap"><td></td><td>&#160;</td><td></td></tr>
-     <tr class="cap" id="cap-s"><td></td><td>
-       <strong>s</strong></td><td></td></tr>
-     <tr>
-       <td><img src="_static/minus.png" class="toggler"
-              id="toggle-1" style="display: none" alt="-" /></td>
-       <td>
-       <a href="swspy.html#module-swspy"><code class="xref">swspy</code></a></td><td>
-       <em></em></td></tr>
-     <tr class="cg-1">
-       <td></td>
-       <td>&#160;&#160;&#160;
-       <a href="swspy.automate.html#module-swspy.automate"><code class="xref">swspy.automate</code></a></td><td>
-       <em></em></td></tr>
-     <tr class="cg-1">
-       <td></td>
-       <td>&#160;&#160;&#160;
-       <a href="swspy.automate.html#module-swspy.automate.automation_manager"><code class="xref">swspy.automate.automation_manager</code></a></td><td>
-       <em></em></td></tr>
-     <tr class="cg-1">
-       <td></td>
-       <td>&#160;&#160;&#160;
-       <a href="swspy.io.html#module-swspy.io"><code class="xref">swspy.io</code></a></td><td>
-       <em></em></td></tr>
-     <tr class="cg-1">
-       <td></td>
-       <td>&#160;&#160;&#160;
-       <a href="swspy.io.html#module-swspy.io.load"><code class="xref">swspy.io.load</code></a></td><td>
-       <em></em></td></tr>
-     <tr class="cg-1">
-       <td></td>
-       <td>&#160;&#160;&#160;
-       <a href="swspy.io.html#module-swspy.io.read_nonlinloc"><code class="xref">swspy.io.read_nonlinloc</code></a></td><td>
-       <em></em></td></tr>
-     <tr class="cg-1">
-       <td></td>
-       <td>&#160;&#160;&#160;
-       <a href="swspy.splitting.html#module-swspy.splitting"><code class="xref">swspy.splitting</code></a></td><td>
-       <em></em></td></tr>
-     <tr class="cg-1">
-       <td></td>
-       <td>&#160;&#160;&#160;
-       <a href="swspy.splitting.html#module-swspy.splitting.forward_model"><code class="xref">swspy.splitting.forward_model</code></a></td><td>
-       <em></em></td></tr>
-     <tr class="cg-1">
-       <td></td>
-       <td>&#160;&#160;&#160;
-       <a href="swspy.splitting.html#module-swspy.splitting.split"><code class="xref">swspy.splitting.split</code></a></td><td>
-       <em></em></td></tr>
-   </table>
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<p>swspy can currently be installed via PyPi (pip install swspy) or a manual install. For the most stable version, select PyPi, for the most up to date versionm select a manual install.</p>
+<div class="section" id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h2>
+<p>The package has the following dependencies:</p>
+<p>numpy
+scipy
+pandas
+matplotlib
+scikit-learn
+obspy
+numba
+(And for testing:
+pytest
+nbformat
+nbconvert
+ipykernel)</p>
+</div>
+<div class="section" id="installing">
+<h2>Installing<a class="headerlink" href="#installing" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="manual-install-from-source">
+<h3>Manual install from source<a class="headerlink" href="#manual-install-from-source" title="Permalink to this headline">¶</a></h3>
+<p>Download or clone the package from <a href="https://github.com/TomSHudson/swspy" target="_blank">github</a>, and install by:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>setup.py<span class="w"> </span>install
+</pre></div>
+</div>
+</div>
+<div class="section" id="pip-install">
+<h3>pip install<a class="headerlink" href="#pip-install" title="Permalink to this headline">¶</a></h3>
+<p>To install via PyPi you can use the following command to install the package:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>swspy
+</pre></div>
+</div>
+</div>
+<div class="section" id="conda-install">
+<h3>conda install<a class="headerlink" href="#conda-install" title="Permalink to this headline">¶</a></h3>
+<p>We hope to soon support installation via conda.</p>
+</div>
+</div>
+</div>
 
 
            </div>
            
           </div>
           <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="coordinate_system.html" class="btn btn-neutral float-right" title="Coordinate System" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="index.html" class="btn btn-neutral float-left" title="swspy Documentation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
   
 
   <hr/>

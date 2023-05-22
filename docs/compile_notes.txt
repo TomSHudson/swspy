@@ -2,7 +2,7 @@ source/conf.py: This is the file where all Sphinx configuration settings (includ
 
 source/index.rst: This is the file which tells Sphinx how to render our index.html page. In general, each source/*.rst file is converted to a corresponding build/html/*.html page when make html is called.
 
-To update automatic python package usage docs:
+To update automatic python package usage docs (swspy.rst etc):
 sphinx-apidoc -f -o source ../swspy
 
 To compile docs:
@@ -10,3 +10,12 @@ make clean
 make html
 
 (For more information, see: https://sphinx-rtd-tutorial.readthedocs.io/en/latest/sphinx-quickstart.html#quickstart)
+
+
+Or can run this to build:
+To update automatic python package usage docs (swspy.rst etc):
+sphinx-apidoc -f -o source ../swspy
+# And then to build:
+sphinx-build -b html source/ build/
+
+

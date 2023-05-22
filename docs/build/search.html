@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Coordinate System &mdash; swspy 0.0.1 documentation</title>
+  <title>Search &mdash; swspy 1.0.0 documentation</title>
   
 
   
@@ -20,6 +20,7 @@
   
 
   
+    
   <!--[if lt IE 9]>
     <script src="_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -35,10 +36,9 @@
     <script type="text/javascript" src="_static/js/theme.js"></script>
 
     
+    <script type="text/javascript" src="_static/searchtools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Tutorials" href="tutorials.html" />
-    <link rel="prev" title="Installation" href="installation.html" /> 
+    <link rel="search" title="Search" href="#" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -65,7 +65,7 @@
 
           
 <div role="search">
-  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+  <form id="rtd-search-form" class="wy-form" action="#" method="get">
     <input type="text" name="q" placeholder="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
@@ -84,9 +84,9 @@
             
             
               <p class="caption"><span class="caption-text">Contents:</span></p>
-<ul class="current">
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Coordinate System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinate_system.html">Coordinate System</a></li>
 <li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">swspy</a></li>
 </ul>
@@ -135,14 +135,12 @@
     
       <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
         
-      <li>Coordinate System</li>
+      <li>Search</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
-            <a href="_sources/coordinate_system.rst.txt" rel="nofollow"> View page source</a>
-          
         
       </li>
     
@@ -154,54 +152,23 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
+  <noscript>
+  <div id="fallback" class="admonition warning">
+    <p class="last">
+      Please activate JavaScript to enable the search functionality.
+    </p>
+  </div>
+  </noscript>
+
   
-<style>
-/* CSS overrides for sphinx_rtd_theme */
-
-/* 24px margin */
-.nbinput.nblast.container,
-.nboutput.nblast.container {
-    margin-bottom: 19px;  /* padding has already 5px */
-}
-
-/* ... except between code cells! */
-.nblast.container + .nbinput.container {
-    margin-top: -19px;
-}
-
-.admonition > p:before {
-    margin-right: 4px;  /* make room for the exclamation icon */
-}
-
-/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
-.math {
-    text-align: unset;
-}
-</style>
-<div class="section" id="coordinate-system">
-<h1>Coordinate System<a class="headerlink" href="#coordinate-system" title="Permalink to this headline">¶</a></h1>
-<p>It is important to understand the coordinate system used by swspy, given that swspy can measure ansiotropy in 3D, as opposed to most previous shear-wave splitting codes.</p>
-<p>There are two options that one can use for coordinate system:
-1. ZNE - In this coordinate system, the package assumes that the ray is coming in at vertical incidence, therefore measuring fst-direction in the horizontal plane. This is conventionally how most previous codes have performed shear-wave splitting analysis.
-2. LQT - In this coordinate system, the package works in the emerging coordinate system, i.e. in 3D. In this system, the fast direction is described by two angles, phi_1 and phi_2.</p>
-<p>Below is a figure summarising the coordinate system. In both the above cases, the problem is solved in the QT plane then translated to the correct coordinate system for the outputs. For the ZNE coordinate system option, theta_inc = 0.</p>
-<a class="reference internal image-reference" href="_images/coordinate_systems_figure.png"><img alt="_images/coordinate_systems_figure.png" src="_images/coordinate_systems_figure.png" style="width: 600px;" /></a>
-</div>
-
+  <div id="search-results">
+  
+  </div>
 
            </div>
            
           </div>
           <footer>
-  
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="tutorials.html" class="btn btn-neutral float-right" title="Tutorials" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
-    </div>
   
 
   <hr/>
@@ -241,7 +208,14 @@
   
   
     
+  
+  <script type="text/javascript">
+    jQuery(function() { Search.loadIndex("searchindex.js"); });
+  </script>
+  
+  <script type="text/javascript" id="searchindexloader"></script>
    
+
 
 </body>
 </html>
