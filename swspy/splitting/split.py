@@ -987,13 +987,13 @@ class create_splitting_object:
 
         # 2. And remove splitting to get corrected waveforms:
         try:
-            phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_Q'])
-            dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
-            phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
-            dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
-            src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N'])
-            src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N_err'])
-            Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
+            phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_Q'].iloc[0])
+            dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'].iloc[0])
+            phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'].iloc[0])
+            dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'].iloc[0])
+            src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N'].iloc[0])
+            src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N_err'].iloc[0])
+            Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'].iloc[0])
         except TypeError:
             # If cannot get parameters becuase splitting clustering failed, skip station:
             raise CustomError("Cannot get splitting parameters because splitting clustering failed.")
@@ -1037,9 +1037,9 @@ class create_splitting_object:
 
         # 2. And remove splitting to get corrected waveforms, post layer 2 correction:
         try:
-            phi_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['phi2_from_Q'])
-            dt_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['dt2'])
-            src_pol_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['src_pol_from_N'])
+            phi_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['phi2_from_Q'].iloc[0])
+            dt_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['dt2'].iloc[0])
+            src_pol_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['src_pol_from_N'].iloc[0])
         except TypeError:
             # If cannot get parameters becuase splitting clustering failed, skip station:
             raise CustomError("Cannot get splitting parameters because splitting clustering failed.")
@@ -1048,9 +1048,9 @@ class create_splitting_object:
         
         # 3. And remove splitting to get corrected waveforms, post layer 1 correction:
         try:
-            phi_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['phi1_from_Q'])
-            dt_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['dt1'])
-            src_pol_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['src_pol_from_N'])
+            phi_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['phi1_from_Q'].iloc[0])
+            dt_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['dt1'].iloc[0])
+            src_pol_curr = float(self.sws_multi_layer_result_df.loc[self.sws_multi_layer_result_df['station'] == station]['src_pol_from_N'].iloc[0])
         except TypeError:
             # If cannot get parameters becuase splitting clustering failed, skip station:
             raise CustomError("Cannot get splitting parameters because splitting clustering failed.")
@@ -1603,24 +1603,24 @@ class create_splitting_object:
                 st_ZNE_curr, st_ZNE_curr_sws_corrected_layer_2, st_ZNE_curr_sws_corrected = self._get_uncorr_and_corr_waveforms_multi_layer(station)
             # Splitting parameters:
             try:
-                phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_Q'])
-                phi_from_N_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_N'])
-                dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'])
-                phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'])
-                dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'])
-                src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N'])
-                src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N_err'])
-                Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'])
-                opt_eig_ratio_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['lambda2/lambda1 ratio'])
+                phi_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_Q'].iloc[0])
+                phi_from_N_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_from_N'].iloc[0])
+                dt_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt'].iloc[0])
+                phi_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['phi_err'].iloc[0])
+                dt_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['dt_err'].iloc[0])
+                src_pol_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N'].iloc[0])
+                src_pol_err_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['src_pol_from_N_err'].iloc[0])
+                Q_w_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['Q_w'].iloc[0])
+                opt_eig_ratio_curr = float(self.sws_result_df.loc[self.sws_result_df['station'] == station]['lambda2/lambda1 ratio'].iloc[0])
                 if self.sws_multi_layer_result_df is not None:
-                    dt_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1'])
-                    dt_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1_err'])
-                    dt_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2'])
-                    dt_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2_err'])
-                    phi_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_from_N'])
-                    phi_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_err'])
-                    phi_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_from_N'])
-                    phi_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_err'])
+                    dt_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1'].iloc[0])
+                    dt_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt1_err'].iloc[0])
+                    dt_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2'].iloc[0])
+                    dt_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['dt2_err'].iloc[0])
+                    phi_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_from_N'].iloc[0])
+                    phi_err_layer1 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi1_err'].iloc[0])
+                    phi_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_from_N'].iloc[0])
+                    phi_err_layer2 = float(self.sws_multi_layer_result_df.loc[self.sws_result_df['station'] == station]['phi2_err'].iloc[0])
             except TypeError:
                 # If cannot get parameters becuase splitting clustering failed, skip station:
                 print("Cannot get splitting parameters because splitting clustering failed. Skipping station:", 
