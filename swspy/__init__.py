@@ -1,5 +1,5 @@
 name = "swspy"
-__version__ = "0.0.1"
+__version__ = "1.0.2"
 __description__ = "swspy - A package for automatically calculating shear wave splitting for large earthquake catalogues."
 __license__ = "MIT"
 __author__ = "Tom Hudson"

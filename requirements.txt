@@ -5,7 +5,7 @@ matplotlib
 scikit-learn
 obspy
 numba
-# For testing
+# For testing:
 pytest
 nbformat
 nbconvert
