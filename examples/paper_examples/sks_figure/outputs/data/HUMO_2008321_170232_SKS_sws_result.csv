@@ -1,2 +1,0 @@
-station,phi_from_Q,phi_from_N,phi_from_U,phi_err,dt,dt_err,src_pol_from_N,src_pol_from_U,src_pol_from_N_err,src_pol_from_U_err,Q_w,lambda2/lambda1 ratio,ray_back_azi,ray_inc
-HUMO,66.0,66.0,90.0,10.5,1.9,0.3,112.268942542,85.3338289841,4.88161549175,13.2960527676,0.0,0.017201054502,0.0,0.0
