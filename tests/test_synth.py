@@ -66,8 +66,7 @@ def test_single_synthetic(dt, phi_N, src_pol_N, src_pol_U, snr):
     lam2_lam1 = splitting_event.sws_result_df['lambda2/lambda1 ratio'].values[0]
 
     assert(lam2_lam1 >= 0.0)
-    # What about 180 degree errors or around 0
-    numpy.testing.assert_allclose(phi_N, phi_N_res, rtol=0.0, atol=phi_err_res)
+    swspy.testing.assert_angle_allclose(phi_N, phi_N_res, rtol=0.0, atol=phi_err_res)
     numpy.testing.assert_allclose(dt, dt_res, rtol=0.0, atol=dt_err_res)
     
     

@@ -9,6 +9,7 @@ __email__ = "thomas.hudson@earth.ox.ac.uk"
 from swspy import io
 from swspy import splitting
 from swspy import automate 
+from . import testing
 #from swspy import plot
 # from swspy.io import *
 # from swspy.splitting import *
