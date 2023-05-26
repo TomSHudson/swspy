@@ -2,6 +2,8 @@
 
 A package for performing shear wave splitting in an automated manner. Based on the eigenvalue method of Silver and Chan (1991), with multi-windowing of Teanby et al (2004), coordinate system transformations from Walsh et al (2013), automation methods based on Wustefeld et al (2010), and some other additions.
 
+some more words
+
 ## To cite:
 
 To be completed...
