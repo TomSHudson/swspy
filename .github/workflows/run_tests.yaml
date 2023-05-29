@@ -4,7 +4,7 @@ on:
   push:
     paths:
     - '**.py'
-    - '.github/workflows/tests.yaml'
+    - '.github/workflows/run_tests.yaml'
     - '**.ipynb'
     - 'requirements.txt'
   pull_request:
@@ -13,7 +13,7 @@ on:
     - master
     paths:
     - '**.py'
-    - '.github/workflows/tests.yaml'
+    - '.github/workflows/run_tests.yaml'
     - '**.ipynb'
     - 'requirements.txt'
 
