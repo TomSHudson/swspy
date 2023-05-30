@@ -79,6 +79,22 @@ class load_waveforms:
         interpolation method.
         If <upsample_factor> = 1, doens't apply upsampling.
 
+    sac : bool (default = False)
+        If passing sac data, will read in sac headers to output directly for 
+        doing the splitting analysis. Note that currently doesn't read a ray 
+        inclination angle, so sets to come in vertically.
+        Explicitly, reads the following information from the sac headers:
+        a - The arrival time of the phase to use (in secs after trace start time).
+        baz - The back-azimuth from receiver to event (in deg from N).
+        (also reads station from the stream headers).
+        If sac = True, then read_waveform_data() will output the dictionary sac_info
+        as part of the class, with the following keys:
+        event_id - id for the event, set from the sac input fname.
+        stations - Receiver ids.
+        s_arrival_times - S-wave arrival times in UTCDateTime fmt.
+        bazs - Back-azimuths.
+        incs - Ray inclination angles (all = 0 degrees from vertical).
+
 
     Methods
     -------
@@ -87,7 +103,7 @@ class load_waveforms:
 
     """
 
-    def __init__(self, path, starttime=None, endtime=None, archive_vs_file="archive", downsample_factor=1, upsample_factor=1):
+    def __init__(self, path, starttime=None, endtime=None, archive_vs_file="archive", downsample_factor=1, upsample_factor=1, sac=False):
         "Initiate load_waveforms object."
         # Specified directly by user:
         self.path = path
@@ -102,6 +118,7 @@ class load_waveforms:
         self.response_file_path = None
         self.downsample_factor = downsample_factor
         self.upsample_factor = upsample_factor
+        self.sac = sac
         # Do some initial checks:
         if not starttime:
             if archive_vs_file != "file":
@@ -199,9 +216,11 @@ class load_waveforms:
                             st.append(tr)
                     except TypeError:
                         continue
-
-
-
+            # And get station info:
+            self.stations = []
+            for tr in st:
+                if tr.stats.station not in self.stations:
+                    self.stations.append(tr.stats.station)
 
         # Apply any filtering, if specified:
         if self.filter:
@@ -227,6 +246,21 @@ class load_waveforms:
         # And downsample data, if specified:
         if self.downsample_factor > 1:
             st.decimate(self.downsample_factor, no_filter=True)
+
+        # Retreive sac info, if specified:
+        if self.sac:
+            self.sac_info = {}
+            self.sac_info['event_uid'] = self.event_uid
+            self.sac_info['stations'] = self.stations
+            self.sac_info['s_arrival_times'] = []
+            self.sac_info['bazs'] = []
+            self.sac_info['incs'] = []
+            for station in self.stations:
+                self.sac_info['s_arrival_times'].append(st.select(station=station)[0].stats.starttime + 
+                                                        float(st.select(station=station)[0].stats.sac['a']))
+                self.sac_info['bazs'].append(float(st.select(station=station)[0].stats.sac['baz']))
+                self.sac_info['incs'].append(0.0) # (Currently sets inclinations to zero)
+            print("Successfully retreived sac info.")
 
         # And return stream:
         return st 
