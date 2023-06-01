@@ -370,9 +370,8 @@ def ftest(data, dof, alpha=0.05, k=2, min_max='min'):
 
 # @jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:], float64[:,:,:]), nopython=True, parallel=True)
 #@njit((types.float64[:], types.float64[:], types.int64[:], types.int64[:], types.int64, types.int64, types.int64, types.float64, types.float64, types.float64[:,:,:], types.float64[:,:,:]), parallel=True)
-# @jit(nopython=True, parallel=True)
-#@njit()#parallel=True)
-@jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:], float64[:,:,:]), nopython=True, parallel=True)
+#@jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:], float64[:,:,:]), nopython=True, parallel=True)
+@jit(nopython=True, parallel=True)
 def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                     grid_search_results_all_win_EV, grid_search_results_all_win_XC):
     """Function to do numba accelerated grid search of phis and dts.
@@ -427,7 +426,8 @@ def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_
     return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
 
 
-@jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:,:,:], float64[:,:,:,:,:]), nopython=True, parallel=True)
+#@jit((float64[:], float64[:], int64[:], int64[:], int64, int64, int64, float64, float64, float64[:,:,:,:,:], float64[:,:,:,:,:]), nopython=True, parallel=True)
+@jit(nopython=True, parallel=True)
 def _phi_dt_grid_search_direct_multi_layer(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_t_steps, n_angle_steps, n_win, fs, rotate_step_deg, 
                                     grid_search_results_all_win_EV, grid_search_results_all_win_XC):
     """Function to do numba accelerated grid search of phis and dts for a multi-layer 
