@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>swspy.io package &mdash; swspy 1.0.1 documentation</title>
+  <title>swspy.io package &mdash; swspy 1.0.2 documentation</title>
   
 
   
@@ -52,15 +52,15 @@
           
 
           
-            <a href="index.html" class="icon icon-home" alt="Documentation Home"> swspy
+            <a href="index.html">
           
 
+          
+            
+            <img src="_static/swspy_logo.png" class="logo" alt="Logo"/>
           
           </a>
 
-          
-            
-            
           
 
           
@@ -96,11 +96,14 @@
 <li class="toctree-l4"><a class="reference internal" href="swspy.splitting.html">swspy.splitting package</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="swspy.html#submodules">Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="swspy.html#module-swspy.testing">swspy.testing module</a></li>
 <li class="toctree-l3"><a class="reference internal" href="swspy.html#module-swspy">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="developers.html">Contributing</a></li>
 </ul>
 
             
@@ -203,7 +206,7 @@
 <span id="swspy-io-load-module"></span><h2>swspy.io.load module<a class="headerlink" href="#module-swspy.io.load" title="Permalink to this headline">¶</a></h2>
 <dl class="py class">
 <dt id="swspy.io.load.load_waveforms">
-<em class="property">class </em><code class="sig-prename descclassname">swspy.io.load.</code><code class="sig-name descname">load_waveforms</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">starttime</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">endtime</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">archive_vs_file</span><span class="o">=</span><span class="default_value">'archive'</span></em>, <em class="sig-param"><span class="n">downsample_factor</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">upsample_factor</span><span class="o">=</span><span class="default_value">1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.io.load.load_waveforms" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><code class="sig-prename descclassname">swspy.io.load.</code><code class="sig-name descname">load_waveforms</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">path</span></em>, <em class="sig-param"><span class="n">starttime</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">endtime</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">archive_vs_file</span><span class="o">=</span><span class="default_value">'archive'</span></em>, <em class="sig-param"><span class="n">downsample_factor</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">upsample_factor</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">sac</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.io.load.load_waveforms" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
 <p>A class to load waveforms from file or an archive.</p>
 <p>Notes:
@@ -304,6 +307,30 @@ If &lt;upsample_factor&gt; = 1, doens’t apply upsampling.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
 <dd class="field-odd"><p>int (default = 1)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="swspy.io.load.load_waveforms.sac">
+<code class="sig-name descname">sac</code><a class="headerlink" href="#swspy.io.load.load_waveforms.sac" title="Permalink to this definition">¶</a></dt>
+<dd><p>If passing sac data, will read in sac headers to output directly for
+doing the splitting analysis. Note that currently doesn’t read a ray
+inclination angle, so sets to come in vertically.
+Explicitly, reads the following information from the sac headers:
+a - The arrival time of the phase to use (in secs after trace start time).
+baz - The back-azimuth from receiver to event (in deg from N).
+(also reads station from the stream headers).
+If sac = True, then read_waveform_data() will output the dictionary sac_info
+as part of the class, with the following keys:
+event_id - id for the event, set from the sac input fname.
+stations - Receiver ids.
+s_arrival_times - S-wave arrival times in UTCDateTime fmt.
+bazs - Back-azimuths.
+incs - Ray inclination angles (all = 0 degrees from vertical).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool (default = False)</p>
 </dd>
 </dl>
 </dd></dl>

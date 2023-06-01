@@ -11,6 +11,17 @@ Subpackages
    swspy.io
    swspy.splitting
 
+Submodules
+----------
+
+swspy.testing module
+--------------------
+
+.. automodule:: swspy.testing
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

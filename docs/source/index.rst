@@ -6,6 +6,8 @@
 swspy Documentation
 ===================
 
+SWSPy is a python package for performing shear wave splitting in an automated manner. Based on the eigenvalue method of Silver and Chan (1991), with multi-windowing of Teanby et al (2004), coordinate system transformations from Walsh et al (2013), automation methods based on Wustefeld et al (2010), support for multi-layered anisotropic media and some other additions.
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
@@ -14,6 +16,7 @@ swspy Documentation
    coordinate_system
    tutorials
    modules
+   developers
 
 
 
