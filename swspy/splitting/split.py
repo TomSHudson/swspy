@@ -410,12 +410,12 @@ def _phi_dt_grid_search(data_arr_Q, data_arr_T, win_start_idxs, win_end_idxs, n_
                     # Calculate eigenvalues:
                     xy_arr = np.vstack((rolled_rot_T_curr, rolled_rot_Q_curr))
                     lambdas_unsort = np.linalg.eigvalsh(np.cov(xy_arr))
-                    lambdas = np.sort(lambdas_unsort)
-                    #lambdas[lambdas==0] = 1e-20
+                    lambda2 = np.min(lambdas_unsort)
+                    lambda1 = np.max(lambdas_unsort)
 
                     # And save eigenvalue results to datastores:
                     # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable):
-                    grid_search_results_all_win_EV[grid_search_idx,i,j] = lambdas[0] / lambdas[1] 
+                    grid_search_results_all_win_EV[grid_search_idx,i,j] = lambda2 / lambda1
 
                     # ================== Calculate splitting parameters via. XC method ==================
                     # if len(grid_search_results_all_win_XC) > 0:
@@ -500,12 +500,12 @@ def _phi_dt_grid_search_direct_multi_layer(data_arr_Q, data_arr_T, win_start_idx
                             # Calculate eigenvalues:
                             xy_arr = np.vstack((rolled_rot_T_curr, rolled_rot_Q_curr))
                             lambdas_unsort = np.linalg.eigvalsh(np.cov(xy_arr))
-                            lambdas = np.sort(lambdas_unsort)
-                            #lambdas[lambdas==0] = 1e-20
+                            lambda2 = np.min(lambdas_unsort)
+                            lambda1 = np.max(lambdas_unsort)
 
                             # And save eigenvalue results to datastores:
                             # Note: Use lambda2 divided by lambda1 as in Wuestefeld2010 (most stable):
-                            grid_search_results_all_win_EV[grid_search_idx,i,j,k,l] = lambdas[0] / lambdas[1] 
+                            grid_search_results_all_win_EV[grid_search_idx,i,j,k,l] = lambda2 / lambda1
 
                             # ================== Calculate splitting parameters via. XC method ==================
                             # if len(grid_search_results_all_win_XC) > 0:
