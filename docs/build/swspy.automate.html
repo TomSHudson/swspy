@@ -338,6 +338,37 @@ png event station file: &lt;outdir&gt;/&lt;data&gt;/&lt;event_uid&gt;_&lt;statio
 </dd></dl>
 
 <dl class="py method">
+<dt id="swspy.automate.automation_manager.proc_many_events.run_events_sac">
+<code class="sig-name descname">run_events_sac</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">sac_dir</span></em>, <em class="sig-param"><span class="n">outdir</span></em>, <em class="sig-param"><span class="n">nproc</span><span class="o">=</span><span class="default_value">1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.automate.automation_manager.proc_many_events.run_events_sac" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to run many events through shear-wave splitting analysis using
+sac data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sac_dir</strong> (<em>str</em>) – Path to sac input data directory. sac files for multiple events can be
+stored together in this directory. There must be three files for each event,
+corresponding to Z,N,E components. Each must have a corresponding event unique ID,
+e.g.:
+event1.BHZ, event1.BHN, event1.BHE, event2.BHZ, event2.BHN, event2.BHE, …</p></li>
+<li><p><strong>outdir</strong> (<em>str</em>) – Path to output directory to save data to. Saves results to:
+csv event summary file: &lt;outdir&gt;/&lt;data&gt;/event_uid.csv
+And if &lt;output_plots&gt; is specified, then will output plots to:
+png event station file: &lt;outdir&gt;/&lt;data&gt;/&lt;event_uid&gt;_&lt;station&gt;.png</p></li>
+<li><p><strong>event_prepad</strong> (<em>float</em>) – </p></li>
+<li><p><strong>event_postpad</strong> (<em>float</em>) – </p></li>
+<li><p><strong>nproc</strong> (<em>int</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Data output to files in outdir, as specified above.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt id="id1">
 <code class="sig-name descname">run_events_sws_fmt</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">datadir</span></em>, <em class="sig-param"><span class="n">outdir</span></em>, <em class="sig-param"><span class="n">S_pick_time_after_start_s</span><span class="o">=</span><span class="default_value">10.0</span></em><span class="sig-paren">)</span><a class="headerlink" href="#id1" title="Permalink to this definition">¶</a></dt>
 <dd><p>Function to run many events through shear-wave splitting analysis using
