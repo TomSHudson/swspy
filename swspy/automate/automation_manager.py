@@ -344,6 +344,99 @@ class proc_many_events:
         print("Data saved to:", outdir)
 
 
+    def run_events_sac(self, sac_dir, outdir, nproc=1):
+        """
+        Function to run many events through shear-wave splitting analysis using 
+        sac data.
+
+        Parameters
+        ----------
+        sac_dir : str
+            Path to sac input data directory. sac files for multiple events can be 
+            stored together in this directory. There must be three files for each event, 
+            corresponding to Z,N,E components. Each must have a corresponding event unique ID,
+            e.g.:
+            event1.BHZ, event1.BHN, event1.BHE, event2.BHZ, event2.BHN, event2.BHE, ...
+
+        outdir : str
+            Path to output directory to save data to. Saves results to:
+            csv event summary file: <outdir>/<data>/event_uid.csv
+            And if <output_plots> is specified, then will output plots to:
+            png event station file: <outdir>/<data>/<event_uid>_<station>.png
+
+        event_prepad : float
+
+        event_postpad : float
+
+        nproc : int
+
+        Returns
+        -------
+        Data output to files in outdir, as specified above.
+        """
+        # Create output directories if not already created:
+        data_outdir = os.path.join(outdir, "data")
+        Path(data_outdir).mkdir(parents=True, exist_ok=True)
+        if self.output_plots:
+            plot_outdir = os.path.join(outdir, "plots")
+            Path(plot_outdir).mkdir(parents=True, exist_ok=True)
+
+        # Get list of event UIDs to process:
+        sac_fnames = glob.glob(os.path.join(sac_dir, '*Z'))
+        event_uids = []
+        for sac_fname in sac_fnames:
+            event_uid_curr = os.path.split(sac_fname)[-1]
+            event_uid_curr = event_uid_curr.split('.')[0]
+            event_uids.append(event_uid_curr)
+
+        # Loop over events, processing:
+        count = 0
+        for event_uid in event_uids:
+            print(''.join(("Processing for event: ", str(count), "/", str(len(event_uids)))))
+            count+=1
+            # 1. Get waveform and other event data:
+            try:
+                sac_file_path = os.path.join(sac_dir, event_uid)
+                load_wfs_obj = swspy.io.load_waveforms(sac_file_path, archive_vs_file="file", sac=True)
+                load_wfs_obj.filter = self.filter
+                load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
+                st = load_wfs_obj.read_waveform_data()
+            except Exception as e:
+                print("Warning:", e)
+                print("Skipping this event.")
+                continue
+
+            # 2. Calculate splitting for event:
+            # 2.i. Setup splitting event object:
+            splitting_event = swspy.splitting.create_splitting_object(st, event_uid=load_wfs_obj.sac_info['event_uid'], 
+                                                              stations_in=load_wfs_obj.sac_info['stations'], 
+                                                              S_phase_arrival_times=load_wfs_obj.sac_info['s_arrival_times'],
+                                                            back_azis_all_stations=load_wfs_obj.sac_info['bazs'],
+                                                            receiver_inc_angles_all_stations=load_wfs_obj.sac_info['incs'])
+            splitting_event.overall_win_start_pre_fast_S_pick = self.overall_win_start_pre_fast_S_pick
+            splitting_event.overall_win_start_post_fast_S_pick = self.overall_win_start_post_fast_S_pick
+            splitting_event.win_S_pick_tolerance = self.win_S_pick_tolerance
+            splitting_event.rotate_step_deg = self.rotate_step_deg
+            splitting_event.max_t_shift_s = self.max_t_shift_s
+            splitting_event.n_win = self.n_win
+            # 2.ii. Perform splitting analysis:
+            splitting_event.perform_sws_analysis(coord_system=self.coord_system, sws_method=self.sws_method) #(coord_system="LQT") #(coord_system="ZNE")
+
+            # 3. Save splitting for event:
+            splitting_event.save_result(outdir=data_outdir)
+            if self.output_wfs:
+                splitting_event.save_wfs(outdir=data_outdir)
+            if self.output_plots:
+                splitting_event.plot(outdir=plot_outdir, suppress_direct_plotting=self.suppress_direct_plotting)
+
+            # Tidy:
+            del splitting_event, st, load_wfs_obj
+            gc.collect()
+        
+        print("Finished processing shear-wave splitting for data in:", sac_dir)
+        print("Data saved to:", outdir)
+
+
 
 
 

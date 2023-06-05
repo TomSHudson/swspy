@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>swspy package &mdash; swspy 1.0.1 documentation</title>
+  <title>swspy package &mdash; swspy 1.0.3 documentation</title>
   
 
   
@@ -52,15 +52,15 @@
           
 
           
-            <a href="index.html" class="icon icon-home" alt="Documentation Home"> swspy
+            <a href="index.html">
           
 
+          
+            
+            <img src="_static/swspy_logo.png" class="logo" alt="Logo"/>
           
           </a>
 
-          
-            
-            
           
 
           
@@ -96,11 +96,14 @@
 <li class="toctree-l4"><a class="reference internal" href="swspy.splitting.html">swspy.splitting package</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="#submodules">Submodules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#module-swspy.testing">swspy.testing module</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#module-swspy">Module contents</a></li>
 </ul>
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="developers.html">Contributing</a></li>
 </ul>
 
             
@@ -220,6 +223,36 @@
 </li>
 </ul>
 </div>
+</div>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-swspy.testing">
+<span id="swspy-testing-module"></span><h2>swspy.testing module<a class="headerlink" href="#module-swspy.testing" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="swspy.testing.assert_angle_allclose">
+<code class="sig-prename descclassname">swspy.testing.</code><code class="sig-name descname">assert_angle_allclose</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">actual</span></em>, <em class="sig-param"><span class="n">desired</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.testing.assert_angle_allclose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Raises an AssertionError if two objects are not equal accounting for angle</p>
+<p>This wraps numpy.testing.assert_allclose but values such as 0.0, 360.0 and
+180.0 are all treated as being the same. Keyword arguments are passed
+on.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="swspy.testing.clamp_angle">
+<code class="sig-prename descclassname">swspy.testing.</code><code class="sig-name descname">clamp_angle</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">angle_in</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.testing.clamp_angle" title="Permalink to this definition">¶</a></dt>
+<dd><p>Assuming 180 degree periodicity, represent an angle between -90 and +90 degrees</p>
+<p>angle is a numpy array.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="swspy.testing.periodic_angular_difference">
+<code class="sig-prename descclassname">swspy.testing.</code><code class="sig-name descname">periodic_angular_difference</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">a_angle</span></em>, <em class="sig-param"><span class="n">b_angle</span></em><span class="sig-paren">)</span><a class="headerlink" href="#swspy.testing.periodic_angular_difference" title="Permalink to this definition">¶</a></dt>
+<dd><p>Angular difference assuming 180 degree periodicity</p>
+<p>a_angle and b_angle are numpy arrays of angle, retuns a numpy array of
+differences such that 0.0 and 360.0 and 180.0 are all the same.</p>
+</dd></dl>
+
 </div>
 <div class="section" id="module-swspy">
 <span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-swspy" title="Permalink to this headline">¶</a></h2>

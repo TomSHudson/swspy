@@ -28,7 +28,7 @@ author = 'Tom S Hudson'
 # The full version:
 # from swspy import __version__ 
 # release = __version__
-release = "1.0.2"
+release = "1.0.3"
 
 
 # -- General configuration ---------------------------------------------------
@@ -69,3 +69,10 @@ autosummary_generate = glob.glob("submodules" + os.sep + "*.rst")
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+# Add a logo:
+html_logo = os.path.join("images", "swspy_logo.png")
+html_theme_options = {
+    'logo_only': True,
+    'display_version': False,
+}
