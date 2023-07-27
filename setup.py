@@ -10,7 +10,7 @@ with open("requirements.txt") as file:
 
 setuptools.setup(
     name="swspy",
-    version='{{VERSION_PLACEHOLDER}}',
+    version='1.0.3',
     author="Tom Hudson",
     author_email="thomas.hudson@earth.ox.ac.uk",
     description="A package for automatically calculating shear wave splitting for large earthquake catalogues.",
