@@ -155,7 +155,7 @@ class load_waveforms:
         return st 
         
 
-    def read_waveform_data(self, stations=None, channels="*"):
+    def read_waveform_data(self, stations=None, channels="*", event_uid="*"):
         """Function to read waveform data. Filters if specified.
 
         Parameters
@@ -175,7 +175,7 @@ class load_waveforms:
         # initiate any further variables specified by user:
         self.stations = stations
         self.channels = channels
-        self.event_uid = "*"
+        self.event_uid = event_uid
 
         # Load data:
         if self.archive_vs_file == "archive":
@@ -202,20 +202,23 @@ class load_waveforms:
                 except TypeError:
                     continue
         else:
-            try:
-                st = obspy.read(os.path.join(datadir, ''.join(("*", self.event_uid, "*", self.channels, 
-                                "*")))).detrend("demean")
-            # Deal with incorrectly formatted individual files:
-            except TypeError:
-                st = obspy.Stream()
-                for fname_tmp in glob.glob(os.path.join(datadir, ''.join(("*", self.event_uid, "*", 
-                                            self.channels, "*")))):
-                    try:
-                        st_tmp = obspy.read(fname_tmp)
-                        for tr in st_tmp:
-                            st.append(tr)
-                    except TypeError:
-                        continue
+            if self.event_uid == "*":
+                try:
+                    st = obspy.read(os.path.join(datadir, ''.join(("*", self.event_uid, "*", self.channels, 
+                                    "*")))).detrend("demean")
+                # Deal with incorrectly formatted individual files:
+                except TypeError:
+                    st = obspy.Stream()
+                    for fname_tmp in glob.glob(os.path.join(datadir, ''.join(("*", self.event_uid, "*", 
+                                                self.channels, "*")))):
+                        try:
+                            st_tmp = obspy.read(fname_tmp)
+                            for tr in st_tmp:
+                                st.append(tr)
+                        except TypeError:
+                            continue
+            else:
+                st = obspy.read(os.path.join(self.path, ''.join((self.event_uid, ".*")))).detrend("demean")
             # And get station info:
             self.stations = []
             for tr in st:
