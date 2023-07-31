@@ -185,6 +185,7 @@ class load_waveforms:
         elif self.archive_vs_file == "file":
             datadir = os.path.dirname(self.path)
             self.event_uid = self.path.split(os.path.sep)[-1]
+            self.event_uid = self.event_uid.split(".")[0]
         else:
             print("Error: archive_vs_file = "+self.archive_vs_file+" is not recognised. Exiting.")
             raise 
@@ -218,7 +219,7 @@ class load_waveforms:
                         except TypeError:
                             continue
             else:
-                st = obspy.read(os.path.join(self.path, ''.join((self.event_uid, ".*")))).detrend("demean")
+                st = obspy.read(os.path.join(datadir, ''.join((self.event_uid, ".*")))).detrend("demean")
             # And get station info:
             self.stations = []
             for tr in st:
