@@ -226,14 +226,15 @@ class proc_many_events:
                 nlloc_hyp_data = swspy.io.read_nonlinloc.read_hyp_file(nlloc_fname)
                 starttime = nlloc_hyp_data.origin_time - event_prepad
                 endtime = nlloc_hyp_data.origin_time + event_postpad
-                load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
-                load_wfs_obj.filter = self.filter
-                load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
                 if archive_vs_event_mseed=="archive":
-                    st = load_wfs_obj.read_waveform_data()
+                    load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
                 elif archive_vs_event_mseed=="event":
                     event_uid = event_uids[nlloc_fnames.index(nlloc_fname)]
-                    st = load_wfs_obj.read_waveform_data(event_uid=event_uid)
+                    mseed_fname = os.path.join(mseed_archive_dir, event_uid+"*")
+                    load_wfs_obj = swspy.io.load_waveforms(mseed_fname, starttime=starttime, endtime=endtime, archive_vs_file='file', downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
+                load_wfs_obj.filter = self.filter
+                load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
+                st = load_wfs_obj.read_waveform_data()
             except Exception as e:
                 print("Warning:", e)
                 print("Skipping this event.")
