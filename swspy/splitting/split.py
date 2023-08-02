@@ -1195,7 +1195,12 @@ class create_splitting_object:
             self.lags_labels = lags_labels 
             self.phis_labels = phis_labels 
             # 4.b. Get lag and phi values and errors associated with windows:
-            phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV, tr_T)
+            try:
+                phis, lags, phi_errs, lag_errs, min_eig_ratios = self._get_phi_and_lag_errors(grid_search_results_all_win_EV, tr_T)
+            except Exception as e:
+                print(e)
+                print("Therefore skipping current receiver measurement.")
+                continue
 
             # 6. Perform clustering for all windows to find best result:
             # (Teanby2004 method, but in new coordinate space with dbscan clustering)
