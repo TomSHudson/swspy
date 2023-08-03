@@ -1257,7 +1257,9 @@ class create_splitting_object:
                 opt_phi_idx = np.where(self.phis_labels == opt_phi)[0][0]
                 opt_lag_idx = np.where(self.lags_labels == opt_lag)[0][0]
             except IndexError:
-                raise CustomError("Cannot find optimal phi or lag.")
+                #raise CustomError("Cannot find optimal phi or lag.")
+                print("Warning: Cannot find optimal phi or lag for station", station, "therefore skipping this receiver.")
+                continue
             self.phi_dt_grid_average[station] = np.average(grid_search_results_all_win_EV, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
             self.event_station_win_idxs[station] = {}
             self.event_station_win_idxs[station]['win_start_idxs'] = win_start_idxs
