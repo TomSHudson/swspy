@@ -1,0 +1,2 @@
+station,phi_from_Q,phi_from_N,phi_from_U,phi_err,dt,dt_err,src_pol_from_N,src_pol_from_U,src_pol_from_N_err,src_pol_from_U_err,Q_w,lambda2/lambda1 ratio,ray_back_azi,ray_inc
+synth,52.0,52.0,90.0,6.0,1.68,0.32,34.513163639,90.0053392561,1.11948793855,0.00246892665214,,0.00621874406654,0.0,0.0
