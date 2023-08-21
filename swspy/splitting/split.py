@@ -19,7 +19,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import pandas as pd 
 import numba 
 from numba import jit, njit, types, set_num_threads, prange, float64, int64
-from scipy import stats, interpolate, signal
+from scipy import stats, interpolate, signal, optimize
 from sklearn import cluster
 from sklearn.cluster import DBSCAN, KMeans, AgglomerativeClustering
 import obspy
@@ -538,13 +538,145 @@ def _phi_dt_grid_search_direct_multi_layer(data_arr_Q, data_arr_T, win_start_idx
                     
     return grid_search_results_all_win_EV, grid_search_results_all_win_XC 
 
+# @jit(nopython=True, parallel=True)
+# def _find_tan_app_possibilities(theta1s, alpha1s, theta2s, alpha2s, alpha_app):
+#     """Function sped up part of _find_multi_layer_splitting_pairs_for_direct_method() 
+#     calculation."""
+#     # Find tan apparent possibilities:
+#     tan_alpha_app_poss_array = np.zeros((len(theta1s), len(alpha1s), len(theta1s), len(alpha1s)))
+#     tan_theta_app_poss_array = np.zeros((len(theta1s), len(alpha1s), len(theta1s), len(alpha1s)))
+#     for i in prange(len(theta1s)):
+#         for j in range(len(alpha1s)):
+#             for k in range(len(theta2s)):
+#                 for l in range(len(alpha2s)):
+#                     # Get a_ps and C_c,ss:
+#                     a_p = (np.cos(theta1s[i]) * np.cos(theta2s[k])) - (np.sin(theta1s[i]) * np.sin(theta2s[k]) * np.cos(alpha2s[l] - alpha1s[j]))
+#                     a_pperp = -1 * np.sin(theta1s[i]) * np.sin(theta2s[i]) * np.sin(alpha2s[l] - alpha1s[j])
+#                     C_c = (np.cos(theta1s[i]) * np.sin(theta2s[k]) * np.cos(alpha2s[l])) + (np.cos(theta2s[k]) * np.sin(theta1s[i]) * np.cos(alpha1s[j]))
+#                     C_s = (np.cos(theta1s[i]) * np.sin(theta2s[k]) * np.sin(alpha2s[l])) + (np.cos(theta2s[k]) * np.sin(theta1s[i]) * np.sin(alpha1s[j]))
+#                     # And specify current tan vals:
+#                     # tan_alpha_app_poss_array[i,j,k,l] = ( a_pperp**2 + C_s**2 ) / ( (a_pperp*a_p) + (C_s*C_c) )
+#                     if (a_pperp*a_p) + (C_s*C_c) != 0:
+#                         tan_alpha_app_poss_array[i,j,k,l] = ( a_pperp**2 + C_s**2 ) / ( (a_pperp*a_p) + (C_s*C_c) )
+#                     else:
+#                         tan_alpha_app_poss_array[i,j,k,l] = np.nan
+#                     tan_theta_app_poss_array[i,j,k,l] = a_pperp / ((C_s*np.cos(alpha_app)) - (C_c*np.sin(alpha_app)))
+#     return tan_alpha_app_poss_array, tan_theta_app_poss_array
+
+
+
+# # @jit(nopython=True, parallel=True)
+# # @jit(parallel=True)
+# def _find_multi_layer_splitting_pairs_for_direct_method(phi_app, dt_app, rotate_step_deg, max_t_shift_s, fs, dom_freq_Hz):
+#     """Function to find multi-layer splitting pairs based on given 
+#     apparant splitting parameters (<phi_app>, <dt_app>).
+#     Method is based upon Silver and Savage (1994), Ozalaybey and 
+#     Savage (1994). Constrains specific phi-dt pairs for 2-layers 
+#     based on Eq.2,3 of Ozalaybey and Savage (1994).
+#     (Note: Currently uses tan_alpha_app_poss_array rather than 
+#     tan_theta_app_poss_array, as gives a more unique (but consistent) 
+#     solution.)
+#     """
+#     # Define range of lags and phis for 2-layer space:
+#     n_t_steps = int(max_t_shift_s * fs)
+#     lags_labels = np.arange(0., n_t_steps, 1) / fs
+#     phis_labels = np.arange(-90, 90 + rotate_step_deg, rotate_step_deg)
+#     theta1s, theta2s = np.pi * dom_freq_Hz * lags_labels, np.pi * dom_freq_Hz * lags_labels
+#     alpha1s, alpha2s = 2 * np.deg2rad(phis_labels), 2 * np.deg2rad(phis_labels)
+#     theta_app = np.pi * dom_freq_Hz * dt_app
+#     alpha_app = 2 * np.deg2rad(phi_app)
+
+#     # Find tan apparent possibilities:
+#     tan_alpha_app_poss_array, tan_theta_app_poss_array = _find_tan_app_possibilities(theta1s, alpha1s, theta2s, alpha2s, alpha_app)
+    
+#     # And find layer-1,layer-2 pairs:
+#     # (based on layer-2 pairs for each layer-1 phi-lag combination):
+#     layer_1_dts_phis = np.zeros((len(lags_labels), len(phis_labels), 2))
+#     layer_2_dts_phis = np.zeros((len(lags_labels), len(phis_labels), 2))
+#     for i in range(len(lags_labels)):
+#         for j in range(len(phis_labels)):
+#             # Define layer-2 values:
+#             layer_2_dts_phis[i,j,0] = lags_labels[i]
+#             layer_2_dts_phis[i,j,1] = phis_labels[j]
+#             # (find value of layer-2 phi, dt that best matches tan values...)
+#             val, idx = find_nearest_2D(tan_alpha_app_poss_array[:,:,i,j], np.tan(alpha_app))
+#             # val, idx = find_nearest_2D(tan_theta_app_poss_array[:,:,i,j], np.tan(theta_app))
+#             # idx = np.unravel_index(np.argmin(np.abs(tan_alpha_app_poss_array[i,j,:,:]-np.tan(alpha_app)), axis=None), tan_alpha_app_poss_array[i,j,:,:].shape)
+#             # idx2 = np.unravel_index(np.argmin(np.abs(tan_theta_app_poss_array[i,j,:,:]-np.tan(theta_app)), axis=None), tan_theta_app_poss_array[i,j,:,:].shape)
+#             # Define layer-2 values:
+#             layer_1_dts_phis[i,j,0] = lags_labels[idx[0]]
+#             layer_1_dts_phis[i,j,1] = phis_labels[idx[1]]
+
+#     # And remove exact zero time-lag and rotation (as gives spurious result):
+#     # (Replace with next set of values)
+#     # (only for layer-1 as layer-2 is set to vary as independent variable)
+#     layer_1_dts_phis[0,:,0] = layer_1_dts_phis[1,:,0]
+#     layer_1_dts_phis[0,:,1] = layer_1_dts_phis[1,:,1]
+#     phi_zero_rot_idx = int((len(phis_labels) - 1) / 2)
+#     layer_1_dts_phis[:,phi_zero_rot_idx,0] = layer_1_dts_phis[:,phi_zero_rot_idx+1,0]
+#     layer_1_dts_phis[:,phi_zero_rot_idx,1] = layer_1_dts_phis[:,phi_zero_rot_idx+1,1]
+
+#     # # Change sign of all phi values (as opposite rotation in original work to correction phi coded here):
+#     # layer_1_dts_phis[:,:,1] = -layer_1_dts_phis[:,:,1]
+#     # layer_2_dts_phis[:,:,1] = -layer_2_dts_phis[:,:,1]
+    
+#     print(phi_app, dt_app, dom_freq_Hz)
+#     fig, ax = plt.subplots(nrows=2)
+#     s1 = ax[0].imshow(layer_1_dts_phis[:,:,0])
+#     s2 = ax[1].imshow(layer_2_dts_phis[:,:,0])
+#     fig.colorbar(s1, ax=ax[0])
+#     fig.colorbar(s2, ax=ax[1])
+#     plt.show()
+
+#     fig, ax = plt.subplots(nrows=2)
+#     s1 = ax[0].imshow(layer_1_dts_phis[:,:,1])
+#     s2 = ax[1].imshow(layer_2_dts_phis[:,:,1])
+#     fig.colorbar(s1, ax=ax[0])
+#     fig.colorbar(s2, ax=ax[1])
+#     plt.show()
+
+#     plt.figure()
+#     plt.scatter(layer_1_dts_phis[:,:,0], layer_1_dts_phis[:,:,1])
+#     plt.show()
+    
+#     # And tidy:
+#     del theta1s, theta2s, alpha1s, alpha2s, tan_alpha_app_poss_array, tan_theta_app_poss_array
+#     gc.collect()
+
+#     return layer_1_dts_phis, layer_2_dts_phis
+
+
+def direct_multi_layer_inv_fun(params, theta_app, alpha_app):
+    """Function combining eqns 1-3 from Ozalaybey and Savage (1994).
+    Note: All angles in radians."""
+    # Extract params to inv for:
+    theta1, alpha1, theta2, alpha2 = params
+    # Get a_ps and C_c,ss:
+    a_p = (np.cos(theta1) * np.cos(theta2)) - (np.sin(theta1) * np.sin(theta2) * np.cos(alpha2 - alpha1))
+    a_pperp = -1 * np.sin(theta1) * np.sin(theta2) * np.sin(alpha2 - alpha1)
+    C_c = (np.cos(theta1) * np.sin(theta2) * np.cos(alpha2)) + (np.cos(theta2) * np.sin(theta1) * np.cos(alpha1))
+    C_s = (np.cos(theta1) * np.sin(theta2) * np.sin(alpha2)) + (np.cos(theta2) * np.sin(theta1) * np.sin(alpha1))
+    # Get tan vals:
+    if (a_pperp*a_p) + (C_s*C_c) != 0:
+        tan_alpha_app = ( a_pperp**2 + C_s**2 ) / ( (a_pperp*a_p) + (C_s*C_c) )
+    else:
+        tan_alpha_app = 1e50
+    if ((C_s*np.cos(alpha_app)) - (C_c*np.sin(alpha_app))) != 0:
+       tan_theta_app = a_pperp / ((C_s*np.cos(alpha_app)) - (C_c*np.sin(alpha_app)))
+    else:
+        tan_theta_app = 1e50
+    # And return sum residual:
+    m = tan_alpha_app + tan_theta_app
+    D = np.tan(theta_app) + np.tan(alpha_app) 
+    return m - D
+
+
 @jit(nopython=True, parallel=True)
-def _find_tan_app_possibilities(theta1s, alpha1s, theta2s, alpha2s):
+def _find_tan_app_model_vs_data_diff_surface(theta1s, alpha1s, theta2s, alpha2s, theta_app, alpha_app):
     """Function sped up part of _find_multi_layer_splitting_pairs_for_direct_method() 
     calculation."""
     # Find tan apparent possibilities:
-    tan_alpha_app_poss_array = np.zeros((len(theta1s), len(alpha1s), len(theta1s), len(alpha1s)))
-    #tan_theta_app_poss_array = np.zeros((len(lags_labels), len(phis_labels), len(lags_labels), len(phis_labels)))
+    diff_arr = np.zeros((len(theta1s), len(alpha1s), len(theta1s), len(alpha1s)))
     for i in prange(len(theta1s)):
         for j in range(len(alpha1s)):
             for k in range(len(theta2s)):
@@ -555,26 +687,26 @@ def _find_tan_app_possibilities(theta1s, alpha1s, theta2s, alpha2s):
                     C_c = (np.cos(theta1s[i]) * np.sin(theta2s[k]) * np.cos(alpha2s[l])) + (np.cos(theta2s[k]) * np.sin(theta1s[i]) * np.cos(alpha1s[j]))
                     C_s = (np.cos(theta1s[i]) * np.sin(theta2s[k]) * np.sin(alpha2s[l])) + (np.cos(theta2s[k]) * np.sin(theta1s[i]) * np.sin(alpha1s[j]))
                     # And specify current tan vals:
-                    # tan_alpha_app_poss_array[i,j,k,l] = ( a_pperp**2 + C_s**2 ) / ( (a_pperp*a_p) + (C_s*C_c) )
                     if (a_pperp*a_p) + (C_s*C_c) != 0:
-                        tan_alpha_app_poss_array[i,j,k,l] = ( a_pperp**2 + C_s**2 ) / ( (a_pperp*a_p) + (C_s*C_c) )
+                        tan_alpha_app = ( a_pperp**2 + C_s**2 ) / ( (a_pperp*a_p) + (C_s*C_c) )
                     else:
-                        tan_alpha_app_poss_array[i,j,k,l] = np.nan
-                    #tan_theta_app_poss_array[i,j,k,l] = a_pperp / ((C_s*np.cos(alpha_app)) - (C_c*np.sin(alpha_app)))
-    return tan_alpha_app_poss_array
+                        tan_alpha_app = 1e6
+                    if ((C_s*np.cos(alpha_app)) - (C_c*np.sin(alpha_app))) != 0:
+                        tan_theta_app = a_pperp / ((C_s*np.cos(alpha_app)) - (C_c*np.sin(alpha_app)))
+                    else:
+                        tan_theta_app = 1e6
+                    # And find m-D
+                    diff_arr[i,j,k,l] = (tan_alpha_app * tan_theta_app) - (np.tan(theta_app) * np.tan(alpha_app))
+    return diff_arr
 
 
-# @jit(nopython=True, parallel=True)
-# @jit(parallel=True)
 def _find_multi_layer_splitting_pairs_for_direct_method(phi_app, dt_app, rotate_step_deg, max_t_shift_s, fs, dom_freq_Hz):
     """Function to find multi-layer splitting pairs based on given 
     apparant splitting parameters (<phi_app>, <dt_app>).
     Method is based upon Silver and Savage (1994), Ozalaybey and 
     Savage (1994). Constrains specific phi-dt pairs for 2-layers 
     based on Eq.2,3 of Ozalaybey and Savage (1994).
-    (Note: Currently uses tan_alpha_app_poss_array rather than 
-    tan_theta_app_poss_array, as gives a more unique (but consistent) 
-    solution.)
+    Finds optimal parameters using least squares method.
     """
     # Define range of lags and phis for 2-layer space:
     n_t_steps = int(max_t_shift_s * fs)
@@ -585,51 +717,88 @@ def _find_multi_layer_splitting_pairs_for_direct_method(phi_app, dt_app, rotate_
     theta_app = np.pi * dom_freq_Hz * dt_app
     alpha_app = 2 * np.deg2rad(phi_app)
 
-    # Find tan apparent possibilities:
-    tan_alpha_app_poss_array = _find_tan_app_possibilities(theta1s, alpha1s, theta2s, alpha2s)
-    
-    # And find layer-1,layer-2 pairs:
-    # (based on layer-2 pairs for each layer-1 phi-lag combination):
-    layer_1_dts_phis = np.zeros((len(lags_labels), len(phis_labels), 2))
-    layer_2_dts_phis = np.zeros((len(lags_labels), len(phis_labels), 2))
-    for i in range(len(lags_labels)):
-        for j in range(len(phis_labels)):
-            # Define layer-2 values:
-            layer_2_dts_phis[i,j,0] = lags_labels[i]
-            layer_2_dts_phis[i,j,1] = phis_labels[j]
-            # (find value of layer-2 phi, dt that best matches tan values...)
-            val, idx = find_nearest_2D(tan_alpha_app_poss_array[:,:,i,j], np.tan(alpha_app))
-            # idx = np.unravel_index(np.argmin(np.abs(tan_alpha_app_poss_array[i,j,:,:]-np.tan(alpha_app)), axis=None), tan_alpha_app_poss_array[i,j,:,:].shape)
-            # idx2 = np.unravel_index(np.argmin(np.abs(tan_theta_app_poss_array[i,j,:,:]-np.tan(theta_app)), axis=None), tan_theta_app_poss_array[i,j,:,:].shape)
-            # Define layer-2 values:
-            layer_1_dts_phis[i,j,0] = lags_labels[idx[0]]
-            layer_1_dts_phis[i,j,1] = phis_labels[idx[1]]
-    
-    print(phi_app, dt_app, dom_freq_Hz)
-    fig, ax = plt.subplots(nrows=2)
-    s1 = ax[0].imshow(layer_1_dts_phis[:,:,0])
-    s2 = ax[1].imshow(layer_2_dts_phis[:,:,0])
-    fig.colorbar(s1, ax=ax[0])
-    fig.colorbar(s2, ax=ax[1])
-    plt.show()
+    # # Find best least squares inv for apparent parameters:
+    # init_guess = np.array([lags_labels[1],0,lags_labels[1],0])
+    # # Define theta and alpha bounds:
+    # # (Note that theta = omega*dt/2, alpha = 2*phi)
+    # bounds = ([lags_labels[1], max_t_shift_s], [0.99*-np.pi/2, 0.99*np.pi/2], [lags_labels[1], max_t_shift_s], 
+    #             [-0.99*np.pi/2, 0.99*np.pi/2]) # (Note: non-zero lags and 0.99 to stop solution going to infinity, and alpha range is pi, not pi/2)
+    # res_lsq = optimize.minimize(direct_multi_layer_inv_fun, init_guess, args=(theta_app, alpha_app), bounds=bounds)
+    # print(res_lsq.x)
 
-    fig, ax = plt.subplots(nrows=2)
-    s1 = ax[0].imshow(layer_1_dts_phis[:,:,1])
-    s2 = ax[1].imshow(layer_2_dts_phis[:,:,1])
-    fig.colorbar(s1, ax=ax[0])
-    fig.colorbar(s2, ax=ax[1])
-    plt.show()
+    # # And compute uncertainty:
+    # jac = res_lsq.jac
+    # print(jac)
+    # cov = np.linalg.inv(jac.T.dot(jac))
+    # param_errs = np.sqrt(np.diagonal(cov))
+
+    # # And get final outputs:
+    # theta1, alpha1, theta2, alpha2 = res_lsq.x
+    # opt_phi_layer1 = alpha1 / 2.
+    # opt_lag_layer1 = theta1 /( np.pi *  dom_freq_Hz)
+    # opt_phi_layer2 = alpha2 / 2.
+    # opt_lag_layer2 = theta2 /( np.pi *  dom_freq_Hz)
+    # theta1_err, alpha1_err, theta2_err, alpha2_err = param_errs
+    # opt_phi_err_layer1 = alpha1_err / 2.
+    # opt_lag_err_layer1 = theta1_err /( np.pi *  dom_freq_Hz)
+    # opt_phi_err_layer2 = alpha2_err / 2.
+    # opt_lag_err_layer2 = theta2_err /( np.pi *  dom_freq_Hz) 
+
+    # print(opt_phi_layer1, opt_lag_layer1, opt_phi_layer2, opt_lag_layer2)
+    # print(opt_phi_err_layer1, opt_lag_err_layer1, opt_phi_err_layer2, opt_lag_err_layer2)
+
+
+
+    # Find differences between model and data (for apparent parameters):
+    diff_arr = _find_tan_app_model_vs_data_diff_surface(theta1s, alpha1s, theta2s, alpha2s, 
+                                                        theta_app, alpha_app)
+    # And remove exact zero time-lag and rotation:
+    # (as infinite values from tan function)
+    # (Replace with next set of values)
+    # (only for layer-1 as layer-2 is set to vary as independent variable)
+    diff_arr[0,:,:,:] = diff_arr[1,:,:,:]
+    diff_arr[:,:,0,:] = diff_arr[:,:,1,:]
+    phi_zero_rot_idx = int((len(phis_labels) - 1) / 2)
+    diff_arr[:,0,:,:] = diff_arr[:,1,:,:]
+    diff_arr[:,:,:,0] = diff_arr[:,:,:,1]
+    diff_arr[:,phi_zero_rot_idx,:,:] = diff_arr[:,phi_zero_rot_idx+1,:,:]
+    diff_arr[:,:,:,phi_zero_rot_idx] = diff_arr[:,:,:,phi_zero_rot_idx+1]
+    diff_arr[:,-1,:,:] = diff_arr[:,-2,:,:]
+    diff_arr[:,:,:,-1] = diff_arr[:,:,:,-2]
+    # diff_arr[diff_arr==0] = 1e6
+
+    # And find minimum in model - data and solution:
+    min_indices = np.unravel_index(np.argmin(np.abs(diff_arr)), diff_arr.shape)
+    theta1, alpha1, theta2, alpha2 = theta1s[min_indices[0]], alpha1s[min_indices[1]], theta2s[min_indices[2]], alpha2s[min_indices[3]]
+    # And calculate lags and phis from thetas and alphas:
+    opt_phi_layer1 = np.rad2deg(alpha1 / 2.)
+    opt_lag_layer1 = theta1 /( np.pi *  dom_freq_Hz)
+    opt_phi_layer2 = np.rad2deg(alpha2 / 2.)
+    opt_lag_layer2 = theta2 /( np.pi *  dom_freq_Hz)
+    print(opt_lag_layer1, opt_phi_layer1, opt_lag_layer2, opt_phi_layer2)
 
     plt.figure()
-    plt.scatter(layer_1_dts_phis[:,:,0], layer_1_dts_phis[:,:,1])
+    Y, X = np.meshgrid(phis_labels, lags_labels)
+    plt.pcolormesh(X, Y, np.abs(diff_arr[:,:,min_indices[2], min_indices[3]]), vmin=0.01, vmax=10, cmap="inferno", norm=matplotlib.colors.LogNorm())
+    plt.colorbar()
+    plt.scatter(opt_lag_layer1, opt_phi_layer1, c='g')
+    plt.title("Layer-1 slice")
     plt.show()
-    
-    # And tidy:
-    del theta1s, theta2s, alpha1s, alpha2s, tan_alpha_app_poss_array
-    gc.collect()
+    plt.figure()
+    print(X.shape, Y.shape, diff_arr[min_indices[0], min_indices[1], :, :].shape)
+    plt.pcolormesh(X, Y, np.abs(diff_arr[min_indices[0], min_indices[1], :, :]), vmin=0.01, vmax=10, cmap="inferno", norm=matplotlib.colors.LogNorm())
+    plt.colorbar()
+    plt.scatter(opt_lag_layer2, opt_phi_layer2, c='g')
+    plt.title("Layer-2 slice")
+    plt.show()
 
-    return layer_1_dts_phis, layer_2_dts_phis
 
+
+
+
+
+
+    print(blah)
 
 
 class create_splitting_object:
