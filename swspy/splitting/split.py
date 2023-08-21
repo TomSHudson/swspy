@@ -379,13 +379,16 @@ def _find_dom_freq(data_arr_Q, data_arr_T, fs):
     """
     f, Pxx_Q = signal.periodogram(data_arr_Q, fs)
     f, Pxx_T = signal.periodogram(data_arr_T, fs)
+    # f, Pxx_Q, Pxx_T = f[1:], Pxx_Q[1:], Pxx_T[1:]
     max_Q, max_T = np.max(Pxx_Q), np.max(Pxx_T)
     if max_Q > max_T:
         dom_freq_Hz = f[np.argmax(Pxx_Q)]
     else:
-        dom_freq_Hz = f[np.argmax(max_T)]
+        dom_freq_Hz = f[np.argmax(Pxx_T)]
     del f, Pxx_Q, Pxx_T
     gc.collect()
+    if dom_freq_Hz == 0:
+        print("Warning: dom_freq_Hz = 0, therefore expect no result.")
     return dom_freq_Hz
 
 
@@ -574,7 +577,8 @@ def _find_multi_layer_splitting_pairs_for_direct_method(phi_app, dt_app, rotate_
     solution.)
     """
     # Define range of lags and phis for 2-layer space:
-    lags_labels = np.arange(0., max_t_shift_s, 1/fs)
+    n_t_steps = int(max_t_shift_s * fs)
+    lags_labels = np.arange(0., n_t_steps, 1) / fs
     phis_labels = np.arange(-90, 90 + rotate_step_deg, rotate_step_deg)
     theta1s, theta2s = np.pi * dom_freq_Hz * lags_labels, np.pi * dom_freq_Hz * lags_labels
     alpha1s, alpha2s = 2 * np.deg2rad(phis_labels), 2 * np.deg2rad(phis_labels)
@@ -590,16 +594,16 @@ def _find_multi_layer_splitting_pairs_for_direct_method(phi_app, dt_app, rotate_
     layer_2_dts_phis = np.zeros((len(lags_labels), len(phis_labels), 2))
     for i in range(len(lags_labels)):
         for j in range(len(phis_labels)):
-            # Define layer-1 values:
-            layer_1_dts_phis[i,j,0] = lags_labels[i]
-            layer_1_dts_phis[i,j,1] = phis_labels[j]
+            # Define layer-2 values:
+            layer_2_dts_phis[i,j,0] = lags_labels[i]
+            layer_2_dts_phis[i,j,1] = phis_labels[j]
             # (find value of layer-2 phi, dt that best matches tan values...)
-            val, idx = find_nearest_2D(tan_alpha_app_poss_array[i,j,:,:], np.tan(alpha_app))
+            val, idx = find_nearest_2D(tan_alpha_app_poss_array[:,:,i,j], np.tan(alpha_app))
             # idx = np.unravel_index(np.argmin(np.abs(tan_alpha_app_poss_array[i,j,:,:]-np.tan(alpha_app)), axis=None), tan_alpha_app_poss_array[i,j,:,:].shape)
             # idx2 = np.unravel_index(np.argmin(np.abs(tan_theta_app_poss_array[i,j,:,:]-np.tan(theta_app)), axis=None), tan_theta_app_poss_array[i,j,:,:].shape)
             # Define layer-2 values:
-            layer_2_dts_phis[i,j,0] = lags_labels[idx[0]]
-            layer_2_dts_phis[i,j,1] = phis_labels[idx[1]]
+            layer_1_dts_phis[i,j,0] = lags_labels[idx[0]]
+            layer_1_dts_phis[i,j,1] = phis_labels[idx[1]]
     
     print(phi_app, dt_app, dom_freq_Hz)
     fig, ax = plt.subplots(nrows=2)
@@ -616,6 +620,9 @@ def _find_multi_layer_splitting_pairs_for_direct_method(phi_app, dt_app, rotate_
     fig.colorbar(s2, ax=ax[1])
     plt.show()
 
+    plt.figure()
+    plt.scatter(layer_1_dts_phis[:,:,0], layer_1_dts_phis[:,:,1])
+    plt.show()
     
     # And tidy:
     del theta1s, theta2s, alpha1s, alpha2s, tan_alpha_app_poss_array
@@ -805,15 +812,17 @@ class create_splitting_object:
         # Setup datastores:
         lags_labels = np.arange(0., n_t_steps, 1) / fs 
         phis_labels = np.arange(-90, 90 + rotate_step_deg, rotate_step_deg)
-        if n_layers == 1:
-            grid_search_results_all_win_EV = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
-            grid_search_results_all_win_XC = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
-        elif n_layers == 2:
-            grid_search_results_all_win_EV = np.zeros((n_win**2, n_t_steps, n_angle_steps, n_t_steps, n_angle_steps), dtype=float)
-            grid_search_results_all_win_XC = np.zeros((n_win**2, n_t_steps, n_angle_steps, n_t_steps, n_angle_steps), dtype=float)
-        else:
-            print("Error: n_layers = ", n_layers, "not supported (n_layers = 1 or 2 currently). Exiting.")
-            sys.exit()
+        grid_search_results_all_win_EV = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
+        grid_search_results_all_win_XC = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
+        # if n_layers == 1:
+        #     grid_search_results_all_win_EV = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
+        #     grid_search_results_all_win_XC = np.zeros((n_win**2, n_t_steps, n_angle_steps), dtype=float)
+        # elif n_layers == 2:
+        #     grid_search_results_all_win_EV = np.zeros((n_win**2, n_t_steps, n_angle_steps, n_t_steps, n_angle_steps), dtype=float)
+        #     grid_search_results_all_win_XC = np.zeros((n_win**2, n_t_steps, n_angle_steps, n_t_steps, n_angle_steps), dtype=float)
+        # else:
+        #     print("Error: n_layers = ", n_layers, "not supported (n_layers = 1 or 2 currently). Exiting.")
+        #     sys.exit()
 
         # Perform grid search:
         if n_layers == 1:
@@ -1628,7 +1637,7 @@ class create_splitting_object:
                 opt_phi_err_layer2, opt_lag_err_layer2 = 0, 0 # (Note: Currently don't calculate errors for this method)
                 opt_eig_ratio  = grid_search_result_multi_layer_inv[abs_min_indices]
                 opt_eig_ratio_layer1, opt_eig_ratio_layer2 = opt_eig_ratio, opt_eig_ratio
-                grid_search_results_all_win_EV_layer1 = grid_search_result_multi_layer_inv[:, abs_min_indices[1], abs_min_indices[2]]
+                grid_search_results_all_win_EV_layer1 = grid_search_result_multi_layer_inv
                 grid_search_results_all_win_EV_layer2 = np.zeros(np.shape(grid_search_results_all_win_EV_layer1)) # Set layer 2 to zeros, simply as can't untangle result.
                 del grid_search_result_multi_layer_inv
                 gc.collect()
@@ -1692,11 +1701,13 @@ class create_splitting_object:
                                         'src_pol_from_N': [src_pol_deg[0]], 'src_pol_from_U': [src_pol_deg[1]], 'src_pol_from_N_err': [src_pol_deg_err[0]], 'src_pol_from_U_err': [src_pol_deg_err[1]], 'Q_w' : [np.nan],  'lambda2/lambda1 ratio': [opt_eig_ratio],
                                         'ray_back_azi': [ray_back_azi], 'ray_inc': [ray_inc_at_station]})
             self.sws_result_df = pd.concat([self.sws_result_df, df_tmp])
-            try:
-                opt_phi_idx = np.where(self.phis_labels == opt_phi_layer1)[0][0]
-                opt_lag_idx = np.where(self.lags_labels == opt_lag_layer1)[0][0]
-            except IndexError:
-                raise CustomError("Cannot find optimal phi or lag.")
+            # print(opt_lag_layer1, self.lags_labels)
+            # print(np.where(self.lags_labels == opt_lag_layer1))
+            # try:
+            #     opt_phi_idx = np.where(self.phis_labels == opt_phi_layer1)[0][0]
+            #     opt_lag_idx = np.where(self.lags_labels == opt_lag_layer1)[0][0]
+            # except IndexError:
+            #     raise CustomError("Cannot find optimal phi or lag.")
             self.phi_dt_grid_average[station] = np.average(grid_search_results_all_win_EV_layer1, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
             self.phi_dt_grid_average_layer1[station] = np.average(grid_search_results_all_win_EV_layer1, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
             self.phi_dt_grid_average_layer2[station] = np.average(grid_search_results_all_win_EV_layer2, axis=0) # (lambda2 divided by lambda1 as in Wuestefeld2010 (most stable))
