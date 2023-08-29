@@ -308,21 +308,49 @@ only save plots to file if &lt;output_plots=True&gt;). Default = False</p>
 
 <dl class="py method">
 <dt id="id0">
-<code class="sig-name descname">run_events_from_nlloc</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">mseed_archive_dir</span></em>, <em class="sig-param"><span class="n">nlloc_dir</span></em>, <em class="sig-param"><span class="n">outdir</span></em>, <em class="sig-param"><span class="n">event_prepad</span><span class="o">=</span><span class="default_value">1.0</span></em>, <em class="sig-param"><span class="n">event_postpad</span><span class="o">=</span><span class="default_value">30.0</span></em>, <em class="sig-param"><span class="n">nproc</span><span class="o">=</span><span class="default_value">1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#id0" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname">run_events_from_nlloc</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">mseed_archive_dir</span></em>, <em class="sig-param"><span class="n">nlloc_dir</span></em>, <em class="sig-param"><span class="n">outdir</span></em>, <em class="sig-param"><span class="n">archive_vs_event_mseed</span><span class="o">=</span><span class="default_value">'archive'</span></em>, <em class="sig-param"><span class="n">event_uids_nlloc_fname_pairs_df</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">event_prepad</span><span class="o">=</span><span class="default_value">1.0</span></em>, <em class="sig-param"><span class="n">event_postpad</span><span class="o">=</span><span class="default_value">30.0</span></em>, <em class="sig-param"><span class="n">nproc</span><span class="o">=</span><span class="default_value">1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#id0" title="Permalink to this definition">¶</a></dt>
 <dd><p>Function to run many events through shear-wave splitting analysis using
 nonlinloc and mseed data (in archive format: &lt;mseed_archive_dir&gt;/&lt;year&gt;/
 &lt;julday&gt;/…).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>mseed_archive_dir</strong> (<em>str</em>) – Path to mseed archive overall directory. Subdirectory paths should be
-in format: &lt;mseed_archive_dir&gt;/&lt;year&gt;/&lt;julday&gt;/yearjulday_station_channel.m.</p></li>
+<li><p><strong>mseed_archive_dir</strong> (<em>str</em>) – Default: Path to mseed archive overall directory. Subdirectory paths should be
+in format: &lt;mseed_archive_dir&gt;/&lt;year&gt;/&lt;julday&gt;/yearjulday_station_channel.m.
+Alternative: However, user can optionally specify to read cut mseed files for each event,
+if archive_vs_event_mseed = “event” (rather than archive_vs_event_mseed = “archive”).
+In this alternative case, &lt;mseed_archive_dir&gt; should be a directory containing
+a mseed file for each event. A list of event uids and corresponding nlloc hyp filenames
+then also needs to be specified, passed via the parameter &lt;event_uids_nlloc_fname_pairs_df&gt;.</p></li>
 <li><p><strong>nlloc_dir</strong> (<em>str</em>) – Path to nlloc .grid0.loc.hyp output files corresponding to events that want
 to process.</p></li>
 <li><p><strong>outdir</strong> (<em>str</em>) – Path to output directory to save data to. Saves results to:
 csv event summary file: &lt;outdir&gt;/&lt;data&gt;/event_uid.csv
 And if &lt;output_plots&gt; is specified, then will output plots to:
 png event station file: &lt;outdir&gt;/&lt;data&gt;/&lt;event_uid&gt;_&lt;station&gt;.png</p></li>
+<li><p><strong>archive_vs_event_mseed</strong> (<em>str</em>) – <p>Two options:
+1. “archive” - Specifies that &lt;mseed_archive_dir&gt; points to an archive directory.
+2. “event” - Specifies that &lt;mseed_archive_dir&gt; points to a directory containing</p>
+<blockquote>
+<div><p>mseed data named by each event uid individually.</p>
+</div></blockquote>
+<p>Note: If “event” is specified, then user must also specify &lt;event_uids_nlloc_fname_pairs_df&gt;.
+Default is “archive”.</p>
+</p></li>
+<li><p><strong>event_uids_nlloc_fname_pairs_df</strong> (<em>pandas DataFrame</em>) – <p>Pandas DataFrame containing two columns:
+1. event_uid. This corresponds to the event mseed files labelled and contained in</p>
+<blockquote>
+<div><p>&lt;mseed_archive_dir&gt;.</p>
+</div></blockquote>
+<ol class="arabic simple" start="2">
+<li><dl class="simple">
+<dt>nlloc_fname. This corresponds to the path to the nlloc file corresponding to the</dt><dd><p>event with event_uid.</p>
+</dd>
+</dl>
+</li>
+</ol>
+<p>Default is None.</p>
+</p></li>
 <li><p><strong>event_prepad</strong> (<em>float</em>) – </p></li>
 <li><p><strong>event_postpad</strong> (<em>float</em>) – </p></li>
 <li><p><strong>nproc</strong> (<em>int</em>) – </p></li>

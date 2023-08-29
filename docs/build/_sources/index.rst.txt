@@ -15,6 +15,7 @@ SWSPy is a python package for performing shear wave splitting in an automated ma
    installation
    coordinate_system
    tutorials
+   hpc_advice
    modules
    developers
 
