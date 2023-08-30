@@ -84,7 +84,9 @@ class load_waveforms:
         doing the splitting analysis. Note that currently doesn't read a ray 
         inclination angle, so sets to come in vertically.
         Explicitly, reads the following information from the sac headers:
-        a - The arrival time of the phase to use (in secs after trace start time).
+        The arrival time of the phase to use (in secs after trace start time). Default 
+        header is <a>, but user can specify a different value (e.g. <t0>) by using the 
+        class attribute <sac_s_pick_hdr>.
         baz - The back-azimuth from receiver to event (in deg from N).
         (also reads station from the stream headers).
         If sac = True, then read_waveform_data() will output the dictionary sac_info
@@ -94,6 +96,10 @@ class load_waveforms:
         s_arrival_times - S-wave arrival times in UTCDateTime fmt.
         bazs - Back-azimuths.
         incs - Ray inclination angles (all = 0 degrees from vertical).
+
+    sac_s_pick_hdr : str (default = a)
+        The sac header to use for the S pick arrival time. Value is float with units of 
+        seconds from start of trace.
 
 
     Methods
@@ -119,6 +125,7 @@ class load_waveforms:
         self.downsample_factor = downsample_factor
         self.upsample_factor = upsample_factor
         self.sac = sac
+        self.sac_s_pick_hdr = 'a'
         # Do some initial checks:
         if not starttime:
             if archive_vs_file != "file":
@@ -155,7 +162,7 @@ class load_waveforms:
         return st 
         
 
-    def read_waveform_data(self, stations=None, channels="*"):
+    def read_waveform_data(self, stations=None, channels="*", event_uid="*"):
         """Function to read waveform data. Filters if specified.
 
         Parameters
@@ -175,7 +182,7 @@ class load_waveforms:
         # initiate any further variables specified by user:
         self.stations = stations
         self.channels = channels
-        self.event_uid = "*"
+        self.event_uid = event_uid
 
         # Load data:
         if self.archive_vs_file == "archive":
@@ -185,6 +192,7 @@ class load_waveforms:
         elif self.archive_vs_file == "file":
             datadir = os.path.dirname(self.path)
             self.event_uid = self.path.split(os.path.sep)[-1]
+            self.event_uid = self.event_uid.split(".")[0]
         else:
             print("Error: archive_vs_file = "+self.archive_vs_file+" is not recognised. Exiting.")
             raise 
@@ -202,20 +210,23 @@ class load_waveforms:
                 except TypeError:
                     continue
         else:
-            try:
-                st = obspy.read(os.path.join(datadir, ''.join(("*", self.event_uid, "*", self.channels, 
-                                "*")))).detrend("demean")
-            # Deal with incorrectly formatted individual files:
-            except TypeError:
-                st = obspy.Stream()
-                for fname_tmp in glob.glob(os.path.join(datadir, ''.join(("*", self.event_uid, "*", 
-                                            self.channels, "*")))):
-                    try:
-                        st_tmp = obspy.read(fname_tmp)
-                        for tr in st_tmp:
-                            st.append(tr)
-                    except TypeError:
-                        continue
+            if self.event_uid == "*":
+                try:
+                    st = obspy.read(os.path.join(datadir, ''.join(("*", self.event_uid, "*", self.channels, 
+                                    "*")))).detrend("demean")
+                # Deal with incorrectly formatted individual files:
+                except TypeError:
+                    st = obspy.Stream()
+                    for fname_tmp in glob.glob(os.path.join(datadir, ''.join(("*", self.event_uid, "*", 
+                                                self.channels, "*")))):
+                        try:
+                            st_tmp = obspy.read(fname_tmp)
+                            for tr in st_tmp:
+                                st.append(tr)
+                        except TypeError:
+                            continue
+            else:
+                st = obspy.read(os.path.join(datadir, ''.join((self.event_uid, ".*")))).detrend("demean")
             # And get station info:
             self.stations = []
             for tr in st:
@@ -257,7 +268,7 @@ class load_waveforms:
             self.sac_info['incs'] = []
             for station in self.stations:
                 self.sac_info['s_arrival_times'].append(st.select(station=station)[0].stats.starttime + 
-                                                        float(st.select(station=station)[0].stats.sac['a']))
+                                                        float(st.select(station=station)[0].stats.sac[self.sac_s_pick_hdr]))
                 self.sac_info['bazs'].append(float(st.select(station=station)[0].stats.sac['baz']))
                 self.sac_info['incs'].append(0.0) # (Currently sets inclinations to zero)
             print("Successfully retreived sac info.")

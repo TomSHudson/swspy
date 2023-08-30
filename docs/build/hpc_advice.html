@@ -1,0 +1,251 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Tips for HPC users &mdash; swspy 1.0.3 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html">
+          
+
+          
+            
+            <img src="_static/swspy_logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinate_system.html">Coordinate System</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">swspy</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developers.html">Contributing</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">swspy</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Tips for HPC users</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/hpc_advice.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="tips-for-hpc-users">
+<h1>Tips for HPC users<a class="headerlink" href="#tips-for-hpc-users" title="Permalink to this headline">¶</a></h1>
+<p>Since SWSPy is parallelised, it may be beneficial to process data on High Performance Computing (HPC) infrastructure for large datasets. Here is a little information on the arcitecture of SWSPy and a brief example on how to structure a HPC job.</p>
+<p>SWSPy is parallelised in an embarissingly parallel fashion for performing the phi-dt grid search. Each process is therefore independent during the grid search. However, the processes come together at the end of each process, and so the code should be treated as a shared memory model rather than a distributed memory model. Crucially, this means that for any job, one should only submit to a maximum of one node. SWSPy does not support parallelisation across mulitple nodes for one job.</p>
+<p>A simple example of a possible submission script is shown below. This script is written for a SLURM submission management system with the Anaconda package manager installed.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Setup SBATCH params (example only):</span>
+SBATCH<span class="w"> </span>--nodes<span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="c1"># NOTE: swspy will only run on a single node</span>
+SBATCH<span class="w"> </span>--ntasks-per-node<span class="o">=</span><span class="m">1</span>
+SBATCH<span class="w"> </span>--cpus-per-task<span class="o">=</span><span class="m">48</span><span class="w">  </span><span class="c1"># NOTE: Make sure number of NUMBA threads specified in swspy!</span>
+SBATCH<span class="w"> </span>--mem<span class="o">=</span><span class="m">64000</span>
+SBATCH<span class="w"> </span>--time<span class="o">=</span><span class="m">12</span>:00:00
+SBATCH<span class="w"> </span>--job-name<span class="o">=</span>swspy_run
+
+<span class="c1"># Load python environment:</span>
+module<span class="w"> </span>load<span class="w"> </span>Anaconda3
+<span class="nb">source</span><span class="w"> </span>activate<span class="w"> </span><span class="nv">$DATA</span>/swspy_env<span class="w"> </span><span class="c1">#Path to anaconda environment with swspy and all dependencies installed</span>
+
+<span class="c1"># Run SWSPy:</span>
+<span class="c1"># NOTE: Very important that the number of processors specified above (--cpus-per-task parameter)</span>
+python<span class="w"> </span>swspy_run_script.py<span class="w"> </span><span class="c1"># Python script detailing specific commands for running swspy (see examples in tutorials).</span>
+</pre></div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2021, Tom S Hudson
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

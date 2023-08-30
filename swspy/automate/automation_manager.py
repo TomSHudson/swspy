@@ -138,7 +138,8 @@ class proc_many_events:
         self.suppress_direct_plotting = True
 
 
-    def run_events_from_nlloc(self, mseed_archive_dir, nlloc_dir, outdir, event_prepad=1.0, event_postpad=30.0, nproc=1):
+    def run_events_from_nlloc(self, mseed_archive_dir, nlloc_dir, outdir, archive_vs_event_mseed="archive", event_uids_nlloc_fname_pairs_df=None, 
+                              event_prepad=1.0, event_postpad=30.0, nproc=1):
         """
         Function to run many events through shear-wave splitting analysis using 
         nonlinloc and mseed data (in archive format: <mseed_archive_dir>/<year>/
@@ -147,8 +148,13 @@ class proc_many_events:
         Parameters
         ----------
         mseed_archive_dir : str
-            Path to mseed archive overall directory. Subdirectory paths should be 
+            Default: Path to mseed archive overall directory. Subdirectory paths should be 
             in format: <mseed_archive_dir>/<year>/<julday>/yearjulday_station_channel.m.
+            Alternative: However, user can optionally specify to read cut mseed files for each event, 
+            if archive_vs_event_mseed = "event" (rather than archive_vs_event_mseed = "archive"). 
+            In this alternative case, <mseed_archive_dir> should be a directory containing 
+            a mseed file for each event. A list of event uids and corresponding nlloc hyp filenames 
+            then also needs to be specified, passed via the parameter <event_uids_nlloc_fname_pairs_df>.
 
         nlloc_dir : str
             Path to nlloc .grid0.loc.hyp output files corresponding to events that want 
@@ -159,6 +165,22 @@ class proc_many_events:
             csv event summary file: <outdir>/<data>/event_uid.csv
             And if <output_plots> is specified, then will output plots to:
             png event station file: <outdir>/<data>/<event_uid>_<station>.png
+
+        archive_vs_event_mseed : str
+            Two options:
+            1. "archive" - Specifies that <mseed_archive_dir> points to an archive directory.
+            2. "event" - Specifies that <mseed_archive_dir> points to a directory containing 
+                mseed data named by each event uid individually.
+            Note: If "event" is specified, then user must also specify <event_uids_nlloc_fname_pairs_df>.
+            Default is "archive".
+
+        event_uids_nlloc_fname_pairs_df : pandas DataFrame
+            Pandas DataFrame containing two columns:
+            1. event_uid. This corresponds to the event mseed files labelled and contained in 
+                <mseed_archive_dir>.
+            2. nlloc_fname. This corresponds to the path to the nlloc file corresponding to the 
+                event with event_uid.
+            Default is None.
 
         event_prepad : float
 
@@ -171,7 +193,18 @@ class proc_many_events:
         Data output to files in outdir, as specified above.
         """
         # Get event list:
-        nlloc_fnames = glob.glob(os.path.join(nlloc_dir, 'loc.*.*.*.grid0.loc.hyp'))
+        if archive_vs_event_mseed=="archive":
+            nlloc_fnames = glob.glob(os.path.join(nlloc_dir, 'loc.*.*.*.grid0.loc.hyp'))
+        elif archive_vs_event_mseed=="event":
+            if isinstance(event_uids_nlloc_fname_pairs_df, pd.DataFrame):
+                nlloc_fnames = list(event_uids_nlloc_fname_pairs_df['nlloc_fname'].values)
+                event_uids = list(event_uids_nlloc_fname_pairs_df['event_uid'].values)
+            else:
+                print("Error: Need to specify <event_uids_nlloc_fname_pairs_df> if <archive_vs_event_mseed> = event. Exiting.")
+                sys.exit()
+        else:
+            print("archive_vs_event_mseed =", archive_vs_event_mseed, "not supported. Exiting")
+            sys.exit()
         if len(nlloc_fnames) == 0:
             print("Error: No events found in", nlloc_fnames, ". Are files of format loc.*.*.*.grid0.loc.hyp?", "Exiting.")
             sys.exit()
@@ -193,7 +226,12 @@ class proc_many_events:
                 nlloc_hyp_data = swspy.io.read_nonlinloc.read_hyp_file(nlloc_fname)
                 starttime = nlloc_hyp_data.origin_time - event_prepad
                 endtime = nlloc_hyp_data.origin_time + event_postpad
-                load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
+                if archive_vs_event_mseed=="archive":
+                    load_wfs_obj = swspy.io.load_waveforms(mseed_archive_dir, starttime=starttime, endtime=endtime, downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
+                elif archive_vs_event_mseed=="event":
+                    event_uid = event_uids[nlloc_fnames.index(nlloc_fname)]
+                    mseed_fname = os.path.join(mseed_archive_dir, event_uid+"*")
+                    load_wfs_obj = swspy.io.load_waveforms(mseed_fname, starttime=starttime, endtime=endtime, archive_vs_file='file', downsample_factor=self.downsample_factor, upsample_factor=self.upsample_factor)
                 load_wfs_obj.filter = self.filter
                 load_wfs_obj.filter_freq_min_max = self.filter_freq_min_max
                 st = load_wfs_obj.read_waveform_data()
