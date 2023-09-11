@@ -28,7 +28,7 @@ author = 'Tom S Hudson'
 # The full version:
 # from swspy import __version__ 
 # release = __version__
-release = "1.0.3"
+release = "1.0.4"
 
 
 # -- General configuration ---------------------------------------------------
