@@ -1999,7 +1999,12 @@ class create_splitting_object:
             # phi - dt space:
             # Plot for single layer:
             if self.sws_multi_layer_result_df is None:
-                Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
+                if len(self.lags_labels) == self.phi_dt_grid_average[station].shape[0]:
+                    Y, X = np.meshgrid(self.phis_labels, self.lags_labels)
+                else: 
+                    # Or deal with different number of lag steps due to different sampling rate...
+                    lag_labels_tmp = np.arange(self.phi_dt_grid_average[station].shape[0]) / self.fs
+                    Y, X = np.meshgrid(self.phis_labels, lag_labels_tmp)
                 Z = self.phi_dt_grid_average[station]
                 # phi_dt_ax.contourf(X, Y, Z, levels=10, cmap="magma")
                 CS = phi_dt_ax.contourf(X, Y, Z, levels=20, cmap="magma")
